@@ -4,22 +4,24 @@ use std::fs;
 use thiserror::Error;
 
 const CONFIGURATION_FILENAME: &str = "config.toml";
+
 lazy_static! {
-    static ref CONFIGURATION_PATH: String = format!(
+    pub static ref CONFIGURATION_PATH: String = format!(
         "{}{}",
         home::home_dir().unwrap().display(),
         "/.config/mpris-notifier/"
     );
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum ConfigurationError {
     #[error("error parsing configuration")]
     Parsing(#[from] toml::de::Error),
 }
+
 /// Configuration file used by mpris-notifier, located at
 /// `$HOME/config/mpris-notifier/config.toml`.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Configuration {
     /// Format string for the notification subject text.
     ///
@@ -69,11 +71,15 @@ impl Default for Configuration {
     }
 }
 
+pub fn load_configuration() -> Result<Configuration, ConfigurationError> {
+    let full_path = format!("{}{}", *CONFIGURATION_PATH, CONFIGURATION_FILENAME);
+    load_configuration_from_path(&full_path)
+}
+
 // Loads a configuration. If a configuration file is not found, one is created
 // with default values, and the default values are used to start the program.
-pub fn load_configuration() -> Result<Configuration, ConfigurationError> {
+fn load_configuration_from_path(full_path: &str) -> Result<Configuration, ConfigurationError> {
     // If we have an existing config file, try to load it and use that
-    let full_path = format!("{}{}", *CONFIGURATION_PATH, CONFIGURATION_FILENAME);
     if let Ok(existing_toml) = fs::read_to_string(&full_path) {
         let config: Configuration = toml::from_str(&existing_toml)?;
         return Ok(config);
@@ -100,4 +106,73 @@ pub fn load_configuration() -> Result<Configuration, ConfigurationError> {
         );
     }
     Ok(default_config)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::configuration::{load_configuration_from_path, ConfigurationError};
+    use crate::Configuration;
+    use lazy_static::lazy_static;
+    use std::{fs, matches};
+    use tempfile::TempDir;
+
+    lazy_static! {
+        static ref TEST_TEMP_DIR: String =
+            TempDir::new().unwrap().into_path().display().to_string();
+    }
+
+    #[test]
+    fn test_load_configuration_existing_happy() {
+        let conf_path = format!("{}{}", &*TEST_TEMP_DIR, "happy.toml");
+        let conf_data = r#"subject_format = '{track}'
+                          body_format = "{album}\n{artist}"
+                          join_string = ' ⬥ '
+                          enable_album_art = true
+                          album_art_deadline = 1500"#;
+        let expected = Configuration {
+            subject_format: "{track}".to_string(),
+            body_format: "{album}\n{artist}".to_string(),
+            join_string: " ⬥ ".to_string(),
+            enable_album_art: true,
+            album_art_deadline: 1500,
+        };
+        fs::create_dir_all(&*TEST_TEMP_DIR).expect("test setup failed");
+        fs::write(&conf_path, conf_data).expect("test setup failed");
+
+        let result =
+            load_configuration_from_path(&conf_path).expect("expected valid configuration to load");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_load_configuration_existing_invalid() {
+        let conf_path = format!("{}{}", &*TEST_TEMP_DIR, "invalid.toml");
+        let conf_data = "?????";
+        fs::create_dir_all(&*TEST_TEMP_DIR).expect("test setup failed");
+        fs::write(&conf_path, conf_data).expect("test setup failed");
+
+        let err = load_configuration_from_path(&conf_path)
+            .expect_err("expected invalid configuration to fail to load");
+        assert!(matches!(err, ConfigurationError::Parsing(_)));
+    }
+
+    #[test]
+    fn test_load_configuration_default_fail_write_default() {
+        let mut permissions = fs::metadata(&*TEST_TEMP_DIR).unwrap().permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&*TEST_TEMP_DIR, permissions).expect("test setup failed");
+        let result = load_configuration_from_path(&TEST_TEMP_DIR)
+            .expect("default config should be returned even if writing one fails");
+
+        assert_eq!(Configuration::default(), result);
+    }
+
+    #[test]
+    fn test_load_configuration_default_happy() {
+        let path = format!("{}{}", &*TEST_TEMP_DIR, "404");
+        let result = load_configuration_from_path(&path)
+            .expect("missing configuration should load a default");
+
+        assert_eq!(Configuration::default(), result);
+    }
 }

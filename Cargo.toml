@@ -37,3 +37,7 @@ home = "*"
 # Notificaiton message formatting
 regex = "1"
 lazy_static = "*"
+
+[dev-dependencies]
+# For creating temporary test data
+tempfile = "3"
