@@ -57,12 +57,9 @@ impl SignalHandler {
                 return Ok(());
             }
 
-            // TempPath ensures that the temporary file is closed, so that
-            // another process can read it. When TempPath is dropped, the
-            // temporary file is deleted with a Rust destructor.
+            // Fetch album art to a temporary buffer, if the feature is enabled.
             let mut album_art: Option<NotificationImage> = None;
 
-            // Fetch album art to a temporary file, if the feature is enabled.
             #[cfg(feature = "album-art")]
             if metadata.art_url.is_some() && self.configuration.enable_album_art {
                 let result = self
