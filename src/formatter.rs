@@ -8,7 +8,7 @@ lazy_static! {
     static ref EMPTY_STR: String = String::from("");
 }
 
-pub(crate) struct FormattedNotification<'a> {
+pub struct FormattedNotification<'a> {
     fmt: &'a str,
     metadata: &'a PlayerMetadata,
     join_str: &'a str,
@@ -53,7 +53,7 @@ fn unwrap_vec_field(field: &Option<Vec<String>>, join_str: &str) -> String {
 }
 
 impl<'a> FormattedNotification<'a> {
-    pub(crate) fn new(fmt: &'a str, metadata: &'a PlayerMetadata, join_str: &'a str) -> Self {
+    pub fn new(fmt: &'a str, metadata: &'a PlayerMetadata, join_str: &'a str) -> Self {
         Self {
             fmt,
             metadata,

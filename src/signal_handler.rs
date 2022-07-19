@@ -6,12 +6,12 @@ use rustbus::message_builder::MarshalledMessage;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(crate) enum SignalHandlerError {
+pub enum SignalHandlerError {
     #[error("error handling D-Bus signal")]
     DBus(#[from] DBusError),
 }
 
-pub(crate) struct SignalHandler {
+pub struct SignalHandler {
     configuration: Configuration,
     notifier: Notifier,
 
@@ -20,7 +20,7 @@ pub(crate) struct SignalHandler {
 }
 
 impl SignalHandler {
-    pub(crate) fn new(configuration: &Configuration) -> Self {
+    pub fn new(configuration: &Configuration) -> Self {
         Self {
             configuration: configuration.clone(),
             notifier: Notifier::new(configuration),
@@ -29,7 +29,7 @@ impl SignalHandler {
         }
     }
 
-    pub(crate) fn handle_signal(
+    pub fn handle_signal(
         &mut self,
         signal: MarshalledMessage,
         dbus: &mut DBusConnection,

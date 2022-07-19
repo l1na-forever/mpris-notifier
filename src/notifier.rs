@@ -10,7 +10,7 @@ const NOTIFICATION_NAMESPACE: &str = "org.freedesktop.Notifications";
 const NOTIFICATION_OBJECTPATH: &str = "/org/freedesktop/Notifications";
 const NOTIFICATION_SOURCE: &str = "mpris-notifier";
 
-pub(crate) struct Notifier {
+pub struct Notifier {
     configuration: Configuration,
 }
 
@@ -22,13 +22,13 @@ enum HintVariant {
 }
 
 impl Notifier {
-    pub(crate) fn new(configuration: &Configuration) -> Self {
+    pub fn new(configuration: &Configuration) -> Self {
         Self {
             configuration: configuration.clone(),
         }
     }
 
-    pub(crate) fn send_notification(
+    pub fn send_notification(
         &self,
         metadata: &PlayerMetadata,
         dbus: &mut DBusConnection,

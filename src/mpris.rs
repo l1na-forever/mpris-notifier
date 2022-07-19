@@ -10,21 +10,21 @@ const MPRIS_SIGNAL_MEMBER: &str = "PropertiesChanged";
 const MPRIS_SIGNAL_OBJECT: &str = "/org/mpris/MediaPlayer2";
 
 #[derive(Debug, Clone)]
-pub(crate) struct PlayerMetadata {
-    pub(crate) status: PlayerStatus,
-    pub(crate) track_id: String,
+pub struct PlayerMetadata {
+    pub status: PlayerStatus,
+    pub track_id: String,
 
-    pub(crate) album: Option<String>,
-    pub(crate) album_artists: Option<Vec<String>>,
-    pub(crate) art_url: Option<String>,
-    pub(crate) artists: Option<Vec<String>>,
-    pub(crate) title: Option<String>,
-    pub(crate) track_number: Option<u32>,
-    pub(crate) track_url: Option<String>,
+    pub album: Option<String>,
+    pub album_artists: Option<Vec<String>>,
+    pub art_url: Option<String>,
+    pub artists: Option<Vec<String>>,
+    pub title: Option<String>,
+    pub track_number: Option<u32>,
+    pub track_url: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub(crate) enum PlayerStatus {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum PlayerStatus {
     Playing,
     Paused,
     Stopped,
@@ -87,7 +87,7 @@ impl TryFrom<MarshalledMessage> for PlayerMetadata {
 
 // Convenience method to subscribe a DBusConnection to MPRIS player property
 // change events (e.g., track changes).
-pub(crate) fn subscribe_mpris(dbus: &mut DBusConnection) -> Result<(), DBusError> {
+pub fn subscribe_mpris(dbus: &mut DBusConnection) -> Result<(), DBusError> {
     dbus.subscribe(
         MPRIS_SIGNAL_INTERFACE,
         MPRIS_SIGNAL_MEMBER,

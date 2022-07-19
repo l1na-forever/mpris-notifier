@@ -3,7 +3,7 @@ use rustbus::DuplexConn;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(crate) enum DBusError {
+pub enum DBusError {
     #[error("error connecting to D-Bus")]
     Connection(#[from] rustbus::connection::Error),
 
@@ -20,7 +20,7 @@ pub(crate) enum DBusError {
     Marshal(#[from] rustbus::wire::errors::MarshalError),
 }
 
-pub(crate) struct DBusConnection {
+pub struct DBusConnection {
     connection: DuplexConn,
 }
 
