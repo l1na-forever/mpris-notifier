@@ -49,7 +49,7 @@ impl ArtFetcher {
             .ok_or(ArtFetcherError::Invalid())?
             .parse()
             .map_err(|_| ArtFetcherError::Invalid())?;
-        let mut bytes: Vec<u8> = Vec::with_capacity(std::cmp::max(len, ART_SIZE_LIMIT));
+        let mut bytes: Vec<u8> = Vec::with_capacity(std::cmp::min(len, ART_SIZE_LIMIT));
         response
             .into_reader()
             .take(ART_SIZE_LIMIT.try_into().unwrap())
