@@ -1,5 +1,8 @@
 #![feature(is_some_with)]
 
+#[cfg(feature = "album-art")]
+mod art;
+
 mod configuration;
 mod dbus;
 mod formatter;
@@ -53,7 +56,7 @@ impl App {
 }
 
 fn main() -> Result<(), AppError> {
-    simple_logger::init_with_level(log::Level::Warn).unwrap();
+    simple_logger::init_with_level(log::Level::Info).unwrap();
     let configuration = load_configuration()?;
     let mut app = App::new(&configuration)?;
     app.event_loop()?;

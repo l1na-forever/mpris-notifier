@@ -1,3 +1,6 @@
+#[cfg(feature = "album-art")]
+use image::DynamicImage;
+
 use crate::dbus::{DBusConnection, DBusError};
 use crate::formatter::FormattedNotification;
 use crate::mpris::PlayerMetadata;
@@ -16,9 +19,37 @@ pub struct Notifier {
 
 // HACK - This is used to get Rustbus to marshal a nested Dict has <String,
 // Variant> (rather than as <String, String>).
-#[derive(Marshal, Unmarshal, Signature, PartialEq, Eq, Debug)]
+#[derive(Marshal, Unmarshal, Signature, Debug)]
 enum HintVariant {
-    Hint(String),
+    String(String),
+    ImageData(NotificationImage),
+}
+
+// See: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html#icons-and-images
+#[derive(Marshal, Unmarshal, Signature, Debug)]
+pub struct NotificationImage {
+    width: i32,
+    height: i32,
+    rowstride: i32,
+    alpha: bool,
+    bits_per_sample: i32,
+    channels: i32,
+    data: Vec<u8>,
+}
+
+#[cfg(feature = "album-art")]
+impl From<DynamicImage> for NotificationImage {
+    fn from(image: DynamicImage) -> Self {
+        Self {
+            width: image.width() as i32,
+            height: image.height() as i32,
+            rowstride: (image.width() * 3) as i32,
+            alpha: false,
+            bits_per_sample: 8,
+            channels: 3,
+            data: image.into_bytes(),
+        }
+    }
 }
 
 impl Notifier {
@@ -31,6 +62,7 @@ impl Notifier {
     pub fn send_notification(
         &self,
         metadata: &PlayerMetadata,
+        album_art: Option<NotificationImage>,
         dbus: &mut DBusConnection,
     ) -> Result<(), DBusError> {
         // See: https://github.com/hoodie/notify-rust/blob/main/src/xdg/dbus_rs.rs#L64-L73
@@ -53,8 +85,11 @@ impl Notifier {
         let mut hints: HashMap<String, HintVariant> = HashMap::new();
         hints.insert(
             "x-canonical-private-synchronous".to_string(),
-            HintVariant::Hint(NOTIFICATION_SOURCE.to_string()),
+            HintVariant::String(NOTIFICATION_SOURCE.to_string()),
         );
+        if let Some(album_art) = album_art {
+            hints.insert("image-data".to_string(), HintVariant::ImageData(album_art));
+        }
         message.body.push_param(&hints)?; // hints (dict of a{sv})
         message.body.push_param(-1_i32)?; // timeout
 

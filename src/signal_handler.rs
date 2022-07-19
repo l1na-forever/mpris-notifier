@@ -1,5 +1,9 @@
+#[cfg(feature = "album-art")]
+use crate::art::ArtFetcher;
+
 use crate::mpris::PlayerMetadata;
 use crate::mpris::PlayerStatus;
+use crate::notifier::NotificationImage;
 use crate::DBusError;
 use crate::{configuration::Configuration, dbus::DBusConnection, notifier::Notifier};
 use rustbus::message_builder::MarshalledMessage;
@@ -14,6 +18,7 @@ pub enum SignalHandlerError {
 pub struct SignalHandler {
     configuration: Configuration,
     notifier: Notifier,
+    art_fetcher: ArtFetcher,
 
     previous_track_id: Option<String>,
     previous_status: Option<PlayerStatus>,
@@ -24,6 +29,7 @@ impl SignalHandler {
         Self {
             configuration: configuration.clone(),
             notifier: Notifier::new(configuration),
+            art_fetcher: ArtFetcher::new(configuration),
             previous_status: None,
             previous_track_id: None,
         }
@@ -50,7 +56,28 @@ impl SignalHandler {
                 return Ok(());
             }
 
-            return Ok(self.notifier.send_notification(&metadata, dbus)?);
+            // TempPath ensures that the temporary file is closed, so that
+            // another process can read it. When TempPath is dropped, the
+            // temporary file is deleted with a Rust destructor.
+            let mut album_art: Option<NotificationImage> = None;
+
+            // Fetch album art to a temporary file, if the feature is enabled.
+            #[cfg(feature = "album-art")]
+            if metadata.art_url.is_some() && self.configuration.enable_album_art {
+                let result = self
+                    .art_fetcher
+                    .get_album_art(metadata.art_url.as_ref().unwrap());
+                match result {
+                    Ok(data) => album_art = Some(data),
+                    Err(err) => {
+                        log::warn!("Error fetching album art for {:#?}: {}", &metadata, err);
+                    }
+                }
+            }
+
+            return Ok(self
+                .notifier
+                .send_notification(&metadata, album_art, dbus)?);
         }
 
         // Signal we don't care about is ignored
