@@ -7,7 +7,7 @@ pub(crate) enum DBusError {
     #[error("error connecting to D-Bus")]
     Connection(#[from] rustbus::connection::Error),
 
-    #[error("D-Bus rejected our input (program bug?)")]
+    #[error("Unexpected D-Bus message format")]
     Invalid(String),
 
     #[error("D-Bus generic error")]
@@ -22,16 +22,12 @@ pub(crate) enum DBusError {
 
 pub(crate) struct DBusConnection {
     connection: DuplexConn,
-    connection_id: String,
 }
 
 impl DBusConnection {
     pub fn new() -> Result<Self, DBusError> {
-        let (connection, connection_id) = Self::connect()?;
-        Ok(Self {
-            connection,
-            connection_id,
-        })
+        let (connection, _) = Self::connect()?;
+        Ok(Self { connection })
     }
 
     /// Blocks, awaiting the next signal from D-Bus, which is processed and

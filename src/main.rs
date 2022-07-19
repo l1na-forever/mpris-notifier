@@ -23,7 +23,6 @@ enum AppError {
 }
 
 struct App {
-    configuration: Configuration,
     notifier: Notifier,
 }
 
@@ -35,7 +34,11 @@ impl App {
 
         loop {
             match dbus.next_signal() {
-                Ok(signal) => self.notifier.handle_signal(signal, &mut dbus)?,
+                Ok(signal) => {
+                    if let Err(err) = self.notifier.handle_signal(signal, &mut dbus) {
+                        log::error!("{:?}", err);
+                    }
+                }
                 Err(err) => log::error!("{:?}", err),
             }
         }
@@ -43,7 +46,6 @@ impl App {
 
     fn new(configuration: &Configuration) -> Result<Self, AppError> {
         Ok(Self {
-            configuration: configuration.clone(),
             notifier: Notifier::new(configuration),
         })
     }

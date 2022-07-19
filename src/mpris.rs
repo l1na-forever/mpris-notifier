@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 const MPRIS_INTERFACE: &str = "org.mpris.MediaPlayer2.Player";
+const MPRIS_SIGNAL_INTERFACE: &str = "org.freedesktop.DBus.Properties";
+const MPRIS_SIGNAL_MEMBER: &str = "PropertiesChanged";
+const MPRIS_SIGNAL_OBJECT: &str = "/org/mpris/MediaPlayer2";
 
 #[derive(Debug, Clone)]
 pub(crate) struct PlayerMetadata {
@@ -86,8 +89,8 @@ impl TryFrom<MarshalledMessage> for PlayerMetadata {
 // change events (e.g., track changes).
 pub(crate) fn subscribe_mpris(dbus: &mut DBusConnection) -> Result<(), DBusError> {
     dbus.subscribe(
-        "org.freedesktop.DBus.Properties",
-        "PropertiesChanged",
-        "/org/mpris/MediaPlayer2",
+        MPRIS_SIGNAL_INTERFACE,
+        MPRIS_SIGNAL_MEMBER,
+        MPRIS_SIGNAL_OBJECT,
     )
 }
