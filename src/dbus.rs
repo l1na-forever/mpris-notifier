@@ -5,7 +5,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum DBusError {
     #[error("error connecting to D-Bus")]
-    Connection(#[from] rustbus::connection::Error),
+    Connection(rustbus::connection::Error),
 
     #[error("Unexpected D-Bus message format")]
     Invalid(String),
@@ -14,15 +14,38 @@ pub enum DBusError {
     Generic(String),
 
     #[error("error unmarshalling D-Bus message")]
-    Unmarshal(#[from] rustbus::wire::errors::UnmarshalError),
+    Unmarshal(rustbus::wire::unmarshal::Error),
 
     #[error("error marshalling D-Bus message")]
-    Marshal(#[from] rustbus::wire::errors::MarshalError),
+    Marshal(rustbus::wire::marshal::Error),
+
+    #[error("rustbus message error")]
+    Message(rustbus::Error)
 }
 
 pub struct DBusConnection {
     connection: DuplexConn,
 }
+
+impl From<rustbus::connection::Error> for DBusError {
+    fn from(err: rustbus::connection::Error) -> Self {
+        DBusError::Connection(err)
+    }
+}
+
+impl From<rustbus::wire::unmarshal::Error> for DBusError {
+    fn from(err: rustbus::wire::unmarshal::Error) -> Self {
+        DBusError::Unmarshal(err)
+    }
+}
+
+impl From<rustbus::Error> for DBusError {
+    fn from(err: rustbus::Error) -> Self {
+        DBusError::Message(err)
+    }
+}
+
+
 
 impl DBusConnection {
     pub fn new() -> Result<Self, DBusError> {

@@ -6,7 +6,7 @@ use crate::formatter::FormattedNotification;
 use crate::mpris::PlayerMetadata;
 use crate::Configuration;
 use rustbus::MessageBuilder;
-use rustbus::{Marshal, Signature, Unmarshal};
+use rustbus::{dbus_variant_sig, Marshal, Unmarshal, Signature};
 use std::collections::HashMap;
 
 const NOTIFICATION_NAMESPACE: &str = "org.freedesktop.Notifications";
@@ -17,16 +17,11 @@ pub struct Notifier {
     configuration: Configuration,
 }
 
-// HACK - This is used to get Rustbus to marshal a nested Dict has <String,
-// Variant> (rather than as <String, String>).
-#[derive(Marshal, Unmarshal, Signature, Debug)]
-enum HintVariant {
-    String(String),
-    ImageData(NotificationImage),
-}
+type NotificationHintMap = HashMap<String, NotificationHintVariant>;
+dbus_variant_sig!(NotificationHintVariant, CaseString => String; CaseNotificationImage => NotificationImage);
 
 // See: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html#icons-and-images
-#[derive(Marshal, Unmarshal, Signature, Debug)]
+#[derive(Marshal, Unmarshal, Signature, Debug, Eq, PartialEq)]
 pub struct NotificationImage {
     width: i32,
     height: i32,
@@ -82,13 +77,13 @@ impl Notifier {
         message.body.push_param(subject)?; // summary
         message.body.push_param(body)?; // body
         message.body.push_param(Vec::<String>::new())?; // actions (array of strings)
-        let mut hints: HashMap<String, HintVariant> = HashMap::new();
+        let mut hints: NotificationHintMap = HashMap::new();
         hints.insert(
             "x-canonical-private-synchronous".to_string(),
-            HintVariant::String(NOTIFICATION_SOURCE.to_string()),
+            NotificationHintVariant::CaseString(NOTIFICATION_SOURCE.to_string()),
         );
         if let Some(album_art) = album_art {
-            hints.insert("image-data".to_string(), HintVariant::ImageData(album_art));
+            hints.insert("image-data".to_string(), NotificationHintVariant::CaseNotificationImage(album_art));
         }
         message.body.push_param(&hints)?; // hints (dict of a{sv})
         message.body.push_param(-1_i32)?; // timeout

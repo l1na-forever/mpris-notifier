@@ -50,8 +50,9 @@ impl SignalHandler {
             }
 
             // Don't notify for the same track twice, unless we're resuming play
-            if previous_track_id.is_some_and(|id| *id == metadata.track_id)
-                || previous_status.is_some_and(|status| *status != PlayerStatus::Playing)
+            if previous_track_id.is_some()
+                && (previous_track_id.unwrap() == metadata.track_id
+                    || previous_status.unwrap() != PlayerStatus::Playing)
             {
                 return Ok(());
             }

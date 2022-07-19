@@ -446,7 +446,6 @@ dependencies = [
  "log",
  "regex",
  "rustbus",
- "rustbus_derive",
  "serde",
  "simple_logger",
  "tempfile",
@@ -466,9 +465,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.23.1"
+version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f866317acbd3a240710c63f065ffb1e4fd466259045ccb504130b7f668f35c6"
+checksum = "e4916f159ed8e5de0082076562152a76b7a1f64a01fd9d1e0fea002c37624faf"
 dependencies = [
  "bitflags",
  "cc",
@@ -665,17 +664,18 @@ dependencies = [
 [[package]]
 name = "rustbus"
 version = "0.17.0"
-source = "git+https://github.com/KillingSpark/rustbus?rev=1dfd01d0ef6be915a7a50d501da849703b636f68#1dfd01d0ef6be915a7a50d501da849703b636f68"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d96c675c757f5622c9261beb7a484d7247cc26c0a5a3de5798095afc9d998542"
 dependencies = [
  "nix",
  "rustbus_derive",
- "thiserror",
 ]
 
 [[package]]
 name = "rustbus_derive"
 version = "0.4.0"
-source = "git+https://github.com/KillingSpark/rustbus?rev=1dfd01d0ef6be915a7a50d501da849703b636f68#1dfd01d0ef6be915a7a50d501da849703b636f68"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "392f6e36718bb3fe5bba60bc07930138377534596398fde528567d58fddc1241"
 dependencies = [
  "proc-macro2",
  "quote",

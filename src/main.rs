@@ -1,5 +1,3 @@
-#![feature(is_some_with)]
-
 #[cfg(feature = "album-art")]
 mod art;
 

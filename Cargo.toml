@@ -16,11 +16,8 @@ album-art = ["ureq", "image"]
 # Macro to generate error types from enums
 thiserror = "1"
 
-# Pure Rust library for accessing D-Bus. A specific revision ahead of latest
-# release (0.17) is used to support Marshal/Unmarshal on enums, as well as get
-# back better typed errors. Move to 0.18 when 0.18 is cut.
-rustbus        = { git = "https://github.com/KillingSpark/rustbus", rev = "1dfd01d0ef6be915a7a50d501da849703b636f68" }
-rustbus_derive = { git = "https://github.com/KillingSpark/rustbus", rev = "1dfd01d0ef6be915a7a50d501da849703b636f68" }
+# Pure Rust library for accessing D-Bus.
+rustbus = "0.17"
 
 # Logging facade and simple output logger
 log = "0.4"
