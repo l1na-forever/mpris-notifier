@@ -5,7 +5,8 @@ Simple version: Shows desktop notifications for media/music track changes.
 
 Technical version: Dependency-light, highly-customizable, XDG desktop notification generator for 🎵 🎹 MPRIS media status changes 💿.
 
-![Screenshot of mpris-notifier being displayed with mako](https://raw.githubusercontent.com/l1na-forever/mpris-notifier/mainline/assets/screenshot1.png)
+<img alt="Screenshot of mpris-notifier being displayed with mako" src="https://raw.githubusercontent.com/l1na-forever/mpris-notifier/mainline/assets/screenshot1.png" width="50%" height="50%" />
+
 *Screenshot of mpris-notifier ([cfg](https://gist.github.com/l1na-forever/97edb7424183c2b376c133d2c4f72ca3)) being displayed with [mako](https://github.com/emersion/mako) ([cfg](https://gist.github.com/l1na-forever/432178c8455ca065e661d96ed4b61a8b))*
 
 ## Features:
