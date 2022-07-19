@@ -1,8 +1,7 @@
 use crate::dbus::{DBusConnection, DBusError};
 use crate::formatter::FormattedNotification;
-use crate::mpris::{PlayerMetadata, PlayerStatus};
+use crate::mpris::PlayerMetadata;
 use crate::Configuration;
-use rustbus::message_builder::MarshalledMessage;
 use rustbus::MessageBuilder;
 use rustbus::{Marshal, Signature, Unmarshal};
 use std::collections::HashMap;
@@ -12,8 +11,6 @@ const NOTIFICATION_OBJECTPATH: &str = "/org/freedesktop/Notifications";
 const NOTIFICATION_SOURCE: &str = "mpris-notifier";
 
 pub(crate) struct Notifier {
-    previous_track_id: Option<String>,
-    previous_status: Option<PlayerStatus>,
     configuration: Configuration,
 }
 
@@ -27,41 +24,11 @@ enum HintVariant {
 impl Notifier {
     pub(crate) fn new(configuration: &Configuration) -> Self {
         Self {
-            previous_track_id: None,
-            previous_status: None,
             configuration: configuration.clone(),
         }
     }
 
-    pub(crate) fn handle_signal(
-        &mut self,
-        signal: MarshalledMessage,
-        dbus: &mut DBusConnection,
-    ) -> Result<(), DBusError> {
-        if let Ok(metadata) = PlayerMetadata::try_from(signal) {
-            let previous_track_id = self.previous_track_id.replace(metadata.track_id.clone());
-            let previous_status = self.previous_status.replace(metadata.status.clone());
-
-            // Don't notify if the player is pausing
-            if metadata.status != PlayerStatus::Playing {
-                return Ok(());
-            }
-
-            // Don't notify for the same track twice, unless we're resuming play
-            if previous_track_id.is_some_and(|id| *id == metadata.track_id)
-                || previous_status.is_some_and(|status| *status != PlayerStatus::Playing)
-            {
-                return Ok(());
-            }
-
-            return self.send_notification(&metadata, dbus);
-        }
-
-        // Signal we don't care about is ignored
-        Ok(())
-    }
-
-    fn send_notification(
+    pub(crate) fn send_notification(
         &self,
         metadata: &PlayerMetadata,
         dbus: &mut DBusConnection,

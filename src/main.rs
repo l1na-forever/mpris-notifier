@@ -5,11 +5,12 @@ mod dbus;
 mod formatter;
 mod mpris;
 mod notifier;
+mod signal_handler;
 
 use crate::configuration::{load_configuration, Configuration, ConfigurationError};
 use crate::dbus::{DBusConnection, DBusError};
 use crate::mpris::subscribe_mpris;
-use crate::notifier::Notifier;
+use crate::signal_handler::SignalHandler;
 use thiserror::Error;
 
 /// Top-level application errors, meant to be presented to the user.
@@ -23,7 +24,7 @@ enum AppError {
 }
 
 struct App {
-    notifier: Notifier,
+    signal_handler: SignalHandler,
 }
 
 impl App {
@@ -35,7 +36,7 @@ impl App {
         loop {
             match dbus.next_signal() {
                 Ok(signal) => {
-                    if let Err(err) = self.notifier.handle_signal(signal, &mut dbus) {
+                    if let Err(err) = self.signal_handler.handle_signal(signal, &mut dbus) {
                         log::error!("{:?}", err);
                     }
                 }
@@ -46,7 +47,7 @@ impl App {
 
     fn new(configuration: &Configuration) -> Result<Self, AppError> {
         Ok(Self {
-            notifier: Notifier::new(configuration),
+            signal_handler: SignalHandler::new(configuration),
         })
     }
 }
