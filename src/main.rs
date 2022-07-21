@@ -12,7 +12,10 @@ use crate::configuration::{load_configuration, Configuration, ConfigurationError
 use crate::dbus::{DBusConnection, DBusError};
 use crate::mpris::subscribe_mpris;
 use crate::signal_handler::SignalHandler;
+use std::{thread, time::Duration};
 use thiserror::Error;
+
+const EVENT_DELAY: Duration = Duration::from_millis(250);
 
 /// Top-level application errors, meant to be presented to the user.
 #[derive(Debug, Error)]
@@ -43,6 +46,7 @@ impl App {
                 }
                 Err(err) => log::error!("{:?}", err),
             }
+            thread::sleep(EVENT_DELAY);
         }
     }
 

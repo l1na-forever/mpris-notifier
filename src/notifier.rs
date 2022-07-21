@@ -6,7 +6,7 @@ use crate::formatter::FormattedNotification;
 use crate::mpris::PlayerMetadata;
 use crate::Configuration;
 use rustbus::MessageBuilder;
-use rustbus::{dbus_variant_sig, Marshal, Unmarshal, Signature};
+use rustbus::{dbus_variant_sig, Marshal, Signature, Unmarshal};
 use std::collections::HashMap;
 
 const NOTIFICATION_NAMESPACE: &str = "org.freedesktop.Notifications";
@@ -83,7 +83,10 @@ impl Notifier {
             NotificationHintVariant::CaseString(NOTIFICATION_SOURCE.to_string()),
         );
         if let Some(album_art) = album_art {
-            hints.insert("image-data".to_string(), NotificationHintVariant::CaseNotificationImage(album_art));
+            hints.insert(
+                "image-data".to_string(),
+                NotificationHintVariant::CaseNotificationImage(album_art),
+            );
         }
         message.body.push_param(&hints)?; // hints (dict of a{sv})
         message.body.push_param(-1_i32)?; // timeout

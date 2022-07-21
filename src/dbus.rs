@@ -20,7 +20,7 @@ pub enum DBusError {
     Marshal(rustbus::wire::marshal::Error),
 
     #[error("rustbus message error")]
-    Message(rustbus::Error)
+    Message(rustbus::Error),
 }
 
 pub struct DBusConnection {
@@ -44,8 +44,6 @@ impl From<rustbus::Error> for DBusError {
         DBusError::Message(err)
     }
 }
-
-
 
 impl DBusConnection {
     pub fn new() -> Result<Self, DBusError> {
