@@ -1,6 +1,7 @@
 #[cfg(feature = "album-art")]
 use crate::art::ArtFetcher;
 
+use crate::mpris::MprisPropertiesChange;
 use crate::mpris::PlayerMetadata;
 use crate::mpris::PlayerStatus;
 use crate::notifier::NotificationImage;
@@ -20,8 +21,8 @@ pub struct SignalHandler {
     notifier: Notifier,
     art_fetcher: ArtFetcher,
 
-    previous_track_id: Option<String>,
-    previous_status: Option<PlayerStatus>,
+    status: Option<PlayerStatus>,
+    metadata: Option<PlayerMetadata>,
 }
 
 impl SignalHandler {
@@ -30,8 +31,8 @@ impl SignalHandler {
             configuration: configuration.clone(),
             notifier: Notifier::new(configuration),
             art_fetcher: ArtFetcher::new(configuration),
-            previous_status: None,
-            previous_track_id: None,
+            status: None,
+            metadata: None,
         }
     }
 
@@ -40,45 +41,58 @@ impl SignalHandler {
         signal: MarshalledMessage,
         dbus: &mut DBusConnection,
     ) -> Result<(), SignalHandlerError> {
-        if let Ok(metadata) = PlayerMetadata::try_from(signal) {
-            let previous_track_id = self.previous_track_id.replace(metadata.track_id.clone());
-            let previous_status = self.previous_status.replace(metadata.status.clone());
+        let change = MprisPropertiesChange::try_from(signal).ok();
+        // Signals we don't care about are ignored
+        if change.is_none() {
+            return Ok(());
+        }
+        let change = change.unwrap();
 
-            // Don't notify if the player is pausing
-            if metadata.status != PlayerStatus::Playing {
-                return Ok(());
-            }
+        let mut status: Option<&PlayerStatus> = self.status.as_ref();
+        let mut metadata: Option<&PlayerMetadata> = self.metadata.as_ref();
+        let mut previous_metadata: Option<PlayerMetadata> = None;
 
-            // Don't notify for the same track twice, unless we're resuming play
-            if previous_track_id.is_some()
-                && (previous_track_id.unwrap() == metadata.track_id
-                    || previous_status.unwrap() != PlayerStatus::Playing)
-            {
-                return Ok(());
-            }
-
-            // Fetch album art to a temporary buffer, if the feature is enabled.
-            let mut album_art: Option<NotificationImage> = None;
-
-            #[cfg(feature = "album-art")]
-            if metadata.art_url.is_some() && self.configuration.enable_album_art {
-                let result = self
-                    .art_fetcher
-                    .get_album_art(metadata.art_url.as_ref().unwrap());
-                match result {
-                    Ok(data) => album_art = Some(data),
-                    Err(err) => {
-                        log::warn!("Error fetching album art for {:#?}: {}", &metadata, err);
-                    }
-                }
-            }
-
-            return Ok(self
-                .notifier
-                .send_notification(&metadata, album_art, dbus)?);
+        if change.status.is_some() {
+            self.status.replace(change.status.unwrap());
+            status = self.status.as_ref();
+        }
+        if change.metadata.is_some() {
+            previous_metadata = self.metadata.replace(change.metadata.unwrap());
+            metadata = self.metadata.as_ref();
         }
 
-        // Signal we don't care about is ignored
-        Ok(())
+        // If we haven't gotten metadata yet, we can't notify
+        if metadata.is_none() {
+            return Ok(());
+        }
+        let metadata = metadata.unwrap();
+
+        // Don't notify if the player is pausing on the same track. Some
+        // players (such as Firefox, in testing) won't necessarily fire a
+        // PlayerStatus propertieschanged event for cases like page
+        // reloads, so we're permissive on what status can be set to.
+        if (status.is_some() && *status.unwrap() != PlayerStatus::Playing)
+            && (previous_metadata.is_some() && previous_metadata.unwrap() == *metadata)
+        {
+            return Ok(());
+        }
+
+        // Fetch album art to a temporary buffer, if the feature is enabled.
+        let mut album_art: Option<NotificationImage> = None;
+
+        #[cfg(feature = "album-art")]
+        if metadata.art_url.is_some() && self.configuration.enable_album_art {
+            let result = self
+                .art_fetcher
+                .get_album_art(metadata.art_url.as_ref().unwrap());
+            match result {
+                Ok(data) => album_art = Some(data),
+                Err(err) => {
+                    log::warn!("Error fetching album art for {:#?}: {}", &metadata, err);
+                }
+            }
+        }
+
+        Ok(self.notifier.send_notification(metadata, album_art, dbus)?)
     }
 }

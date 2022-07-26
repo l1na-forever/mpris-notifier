@@ -10,10 +10,14 @@ const MPRIS_SIGNAL_MEMBER: &str = "PropertiesChanged";
 const MPRIS_SIGNAL_OBJECT: &str = "/org/mpris/MediaPlayer2";
 
 #[derive(Debug, Clone)]
-pub struct PlayerMetadata {
-    pub status: PlayerStatus,
-    pub track_id: String,
+pub struct MprisPropertiesChange {
+    pub status: Option<PlayerStatus>,
+    pub metadata: Option<PlayerMetadata>,
+}
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct PlayerMetadata {
+    pub track_id: Option<String>,
     pub album: Option<String>,
     pub album_artists: Option<Vec<String>>,
     pub art_url: Option<String>,
@@ -43,7 +47,7 @@ impl FromStr for PlayerStatus {
     }
 }
 
-impl TryFrom<MarshalledMessage> for PlayerMetadata {
+impl TryFrom<MarshalledMessage> for MprisPropertiesChange {
     type Error = DBusError;
 
     fn try_from(message: MarshalledMessage) -> Result<Self, Self::Error> {
@@ -56,32 +60,30 @@ impl TryFrom<MarshalledMessage> for PlayerMetadata {
             )));
         }
 
+        // HashMap<String, Variant>
         let outer: HashMap<String, Variant> = parser.get()?;
-        let inner: HashMap<String, Variant> = outer
-            .get("Metadata")
-            .ok_or_else(|| DBusError::Invalid("Missing Metadata envelope".to_string()))?
-            .get()?;
+        let metadata_map: Option<HashMap<String, Variant>> =
+            outer.get("Metadata").and_then(|m| m.get().ok());
+        let status: Option<PlayerStatus> = outer
+            .get("PlaybackStatus")
+            .and_then(|s| s.get().ok())
+            .and_then(|s| PlayerStatus::from_str(s).ok());
+        let metadata: Option<PlayerMetadata> = metadata_map.map(|m| metadata_from_map(&m));
 
-        Ok(Self {
-            status: PlayerStatus::from_str(
-                outer
-                    .get("PlaybackStatus")
-                    .ok_or_else(|| {
-                        DBusError::Invalid("Missing PlaybackStatus envelope".to_string())
-                    })?
-                    .get()?,
-            )
-            .unwrap_or(PlayerStatus::Stopped),
-            track_id: inner["mpris:trackid"].get()?,
+        Ok(Self { status, metadata })
+    }
+}
 
-            album: inner.get("xesam:album").and_then(|x| x.get().ok()),
-            album_artists: inner.get("xesam:albumArtist").and_then(|x| x.get().ok()),
-            art_url: inner.get("mpris:artUrl").and_then(|x| x.get().ok()),
-            artists: inner.get("xesam:artist").and_then(|x| x.get().ok()),
-            title: inner.get("xesam:title").and_then(|x| x.get().ok()),
-            track_number: inner.get("xesam:trackNumber").and_then(|x| x.get().ok()),
-            track_url: inner.get("xesam:url").and_then(|x| x.get().ok()),
-        })
+fn metadata_from_map(inner: &HashMap<String, Variant>) -> PlayerMetadata {
+    PlayerMetadata {
+        track_id: inner.get("mpris:trackid").and_then(|x| x.get().ok()),
+        album: inner.get("xesam:album").and_then(|x| x.get().ok()),
+        album_artists: inner.get("xesam:albumArtist").and_then(|x| x.get().ok()),
+        art_url: inner.get("mpris:artUrl").and_then(|x| x.get().ok()),
+        artists: inner.get("xesam:artist").and_then(|x| x.get().ok()),
+        title: inner.get("xesam:title").and_then(|x| x.get().ok()),
+        track_number: inner.get("xesam:trackNumber").and_then(|x| x.get().ok()),
+        track_url: inner.get("xesam:url").and_then(|x| x.get().ok()),
     }
 }
 

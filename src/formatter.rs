@@ -65,7 +65,7 @@ impl<'a> FormattedNotification<'a> {
 #[cfg(test)]
 mod tests {
     use super::FormattedNotification;
-    use crate::mpris::{PlayerMetadata, PlayerStatus};
+    use crate::mpris::PlayerMetadata;
 
     #[test]
     fn test_formatted_notification() {
@@ -76,8 +76,7 @@ mod tests {
                    blackwinterwells * 8485 blackwinterwells * 8485 vivisect vivisect
                    1 {nop} nop 👻";
         let metadata = PlayerMetadata {
-            status: PlayerStatus::Playing,
-            track_id: "track-id".to_string(),
+            track_id: Some("track-id".to_string()),
             album: Some("vivisect".to_string()),
             album_artists: Some(vec!["blackwinterwells".to_string(), "8485".to_string()]),
             art_url: Some(
@@ -100,8 +99,7 @@ mod tests {
         let fmt = "{album} {album_artists} {album_artist} {artists} {artist} {title} {track} {track_number} {nop} nop";
         let exp = "       1 {nop} nop";
         let metadata = PlayerMetadata {
-            status: PlayerStatus::Playing,
-            track_id: "track-id".to_string(),
+            track_id: Some("track-id".to_string()),
             album: None,
             album_artists: None,
             art_url: None,
