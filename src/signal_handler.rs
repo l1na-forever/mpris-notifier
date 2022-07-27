@@ -9,7 +9,11 @@ use crate::DBusError;
 use crate::{configuration::Configuration, dbus::DBusConnection, notifier::Notifier};
 use rustbus::message_builder::MarshalledMessage;
 use std::collections::HashMap;
+use std::time::Duration;
+use std::time::Instant;
 use thiserror::Error;
+
+const NOTIFICATION_SPILLOVER: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Error)]
 pub enum SignalHandlerError {
@@ -24,6 +28,7 @@ pub struct SignalHandler {
 
     status: HashMap<String, PlayerStatus>,
     metadata: HashMap<String, PlayerMetadata>,
+    last_notification: Instant,
 }
 
 impl SignalHandler {
@@ -34,6 +39,7 @@ impl SignalHandler {
             art_fetcher: ArtFetcher::new(configuration),
             status: HashMap::new(),
             metadata: HashMap::new(),
+            last_notification: Instant::now(),
         }
     }
 
@@ -80,13 +86,6 @@ impl SignalHandler {
         let metadata = metadata.unwrap();
         let status = status.unwrap();
 
-        log::info!(
-            "status is {:?}, metadata is {:#?}, previous_metadata is {:#?}",
-            &status,
-            &metadata,
-            &previous_metadata
-        );
-
         if *status != PlayerStatus::Playing {
             return Ok(());
         }
@@ -114,6 +113,20 @@ impl SignalHandler {
                 }
             }
         }
+
+        // Some notification producers can oscillate between playing/not
+        // playing rapidly, generating a lot of play/pause events for the same
+        // track. This attempts to account for spammy producers.
+        let now = Instant::now();
+        let delta = now - self.last_notification;
+        if delta < NOTIFICATION_SPILLOVER {
+            log::warn!(
+                "Multiple signals received in under {:?}, dropping",
+                NOTIFICATION_SPILLOVER
+            );
+            return Ok(());
+        }
+        self.last_notification = now;
 
         Ok(self.notifier.send_notification(metadata, album_art, dbus)?)
     }
