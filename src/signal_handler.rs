@@ -8,6 +8,7 @@ use crate::notifier::NotificationImage;
 use crate::DBusError;
 use crate::{configuration::Configuration, dbus::DBusConnection, notifier::Notifier};
 use rustbus::message_builder::MarshalledMessage;
+use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -21,8 +22,8 @@ pub struct SignalHandler {
     notifier: Notifier,
     art_fetcher: ArtFetcher,
 
-    status: Option<PlayerStatus>,
-    metadata: Option<PlayerMetadata>,
+    status: HashMap<String, PlayerStatus>,
+    metadata: HashMap<String, PlayerMetadata>,
 }
 
 impl SignalHandler {
@@ -31,8 +32,8 @@ impl SignalHandler {
             configuration: configuration.clone(),
             notifier: Notifier::new(configuration),
             art_fetcher: ArtFetcher::new(configuration),
-            status: None,
-            metadata: None,
+            status: HashMap::new(),
+            metadata: HashMap::new(),
         }
     }
 
@@ -41,6 +42,12 @@ impl SignalHandler {
         signal: MarshalledMessage,
         dbus: &mut DBusConnection,
     ) -> Result<(), SignalHandlerError> {
+        let sender = signal
+            .dynheader
+            .sender
+            .as_ref()
+            .ok_or_else(|| DBusError::Invalid("Missing sender header".to_string()))?
+            .clone();
         let change = MprisPropertiesChange::try_from(signal).ok();
         // Signals we don't care about are ignored
         if change.is_none() {
@@ -48,31 +55,46 @@ impl SignalHandler {
         }
         let change = change.unwrap();
 
-        let mut status: Option<&PlayerStatus> = self.status.as_ref();
-        let mut metadata: Option<&PlayerMetadata> = self.metadata.as_ref();
+        let mut status: Option<&PlayerStatus> = self.status.get(&sender);
+        let mut metadata: Option<&PlayerMetadata> = self.metadata.get(&sender);
+        let mut previous_status: Option<PlayerStatus> = None;
         let mut previous_metadata: Option<PlayerMetadata> = None;
 
         if change.status.is_some() {
-            self.status.replace(change.status.unwrap());
-            status = self.status.as_ref();
+            previous_status = self
+                .status
+                .insert(sender.to_string(), change.status.unwrap());
+            status = self.status.get(&sender);
         }
         if change.metadata.is_some() {
-            previous_metadata = self.metadata.replace(change.metadata.unwrap());
-            metadata = self.metadata.as_ref();
+            previous_metadata = self
+                .metadata
+                .insert(sender.to_string(), change.metadata.unwrap());
+            metadata = self.metadata.get(&sender);
         }
 
-        // If we haven't gotten metadata yet, we can't notify
-        if metadata.is_none() {
+        // If we haven't gotten metadata/status yet, we can't notify
+        if metadata.is_none() || status.is_none() {
             return Ok(());
         }
         let metadata = metadata.unwrap();
+        let status = status.unwrap();
 
-        // Don't notify if the player is pausing on the same track. Some
-        // players (such as Firefox, in testing) won't necessarily fire a
-        // PlayerStatus propertieschanged event for cases like page
-        // reloads, so we're permissive on what status can be set to.
-        if (status.is_some() && *status.unwrap() != PlayerStatus::Playing)
-            && (previous_metadata.is_some() && previous_metadata.unwrap() == *metadata)
+        log::info!(
+            "status is {:?}, metadata is {:#?}, previous_metadata is {:#?}",
+            &status,
+            &metadata,
+            &previous_metadata
+        );
+
+        if *status != PlayerStatus::Playing {
+            return Ok(());
+        }
+
+        // Don't notify if a notification for this track has already fired, unless we're resuming after pause.
+        if (previous_status.is_some() && previous_status.unwrap() != PlayerStatus::Paused)
+            && previous_metadata.is_some()
+            && previous_metadata.unwrap() == *metadata
         {
             return Ok(());
         }
