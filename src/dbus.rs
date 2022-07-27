@@ -16,9 +16,6 @@ pub enum DBusError {
     #[error("error unmarshalling D-Bus message")]
     Unmarshal(rustbus::wire::unmarshal::Error),
 
-    #[error("error marshalling D-Bus message")]
-    Marshal(rustbus::wire::marshal::Error),
-
     #[error("rustbus message error")]
     Message(rustbus::Error),
 }
