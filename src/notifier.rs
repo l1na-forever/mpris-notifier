@@ -35,13 +35,16 @@ pub struct NotificationImage {
 #[cfg(feature = "album-art")]
 impl From<DynamicImage> for NotificationImage {
     fn from(image: DynamicImage) -> Self {
+        let has_alpha = image.color() == image::ColorType::Rgba8;
+        let channels = if has_alpha { 4 } else { 3 };
+
         Self {
             width: image.width() as i32,
             height: image.height() as i32,
-            rowstride: (image.width() * 3) as i32,
-            alpha: false,
+            rowstride: (image.width() * channels) as i32,
+            alpha: has_alpha,
             bits_per_sample: 8,
-            channels: 3,
+            channels: channels as i32,
             data: image.into_bytes(),
         }
     }
