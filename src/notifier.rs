@@ -74,6 +74,11 @@ impl Notifier {
         let subject = self.format_metadata(&self.configuration.subject_format, metadata);
         let body = self.format_metadata(&self.configuration.body_format, metadata);
 
+        if subject.trim().is_empty() && body.trim().is_empty() {
+            // Don't bother popping an empty notification window up
+            return Ok(());
+        }
+
         message.body.push_param(NOTIFICATION_SOURCE)?; // appname (TODO)
         message.body.push_param(0_u32)?; // update ID
         message.body.push_param("")?; // icon
