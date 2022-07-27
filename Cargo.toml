@@ -10,7 +10,7 @@ keywords = ["mpris", "xdg", "notifications", "tiny", "notifier"]
 
 [features]
 default = ["album-art"]
-album-art = ["ureq", "image"]
+album-art = ["ureq", "url", "image"]
 
 [dependencies]
 # Macro to generate error types from enums
@@ -25,6 +25,9 @@ simple_logger = "2"
 
 # Minimal, blocking/sync HTTP client used to download album art
 ureq = { version = "2.5", optional = true }
+
+# URL parsing library, used to determine how to handle album art URLs
+url = { version = "2.2", optional = true }
 
 # Image processing library, used to convert album art into the XDG
 # notification image-data format
