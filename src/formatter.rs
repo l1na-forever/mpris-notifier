@@ -14,13 +14,13 @@ pub struct FormattedNotification<'a> {
     join_str: &'a str,
 }
 
-impl<'a> fmt::Display for FormattedNotification<'_> {
+impl fmt::Display for FormattedNotification<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", FORMAT_REGEX.replace_all(self.fmt, self))
     }
 }
 
-impl<'a> Replacer for &FormattedNotification<'_> {
+impl Replacer for &FormattedNotification<'_> {
     fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
         let cap = caps.get(0).unwrap().as_str();
         let md = &self.metadata;
