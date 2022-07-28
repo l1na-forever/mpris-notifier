@@ -116,12 +116,12 @@ impl SignalHandler {
         //
         // When the 'Playing' signal is sent, queue that sender's track
         // for notification (either they're resuming play, or changing
-        // tracks). If any other status signal is sent, ignore it; the
-        // other events aren't used consistently enough to use as hints.
+        // tracks).
         if let Some(status) = change.status {
             if status == PlayerStatus::Playing {
                 self.pending_notification = Some(Notification::new(&sender, metadata, None));
             } else {
+                self.pending_notification = None;
                 return Ok(());
             }
         }
@@ -136,7 +136,7 @@ impl SignalHandler {
                 .get_album_art(metadata.art_url.as_ref().unwrap());
             match result {
                 Ok(data) => {
-                    pending.update(&metadata, Some(data));
+                    pending.update(metadata, Some(data));
                 }
                 Err(err) => {
                     log::warn!("Error fetching album art for {:#?}: {}", &metadata, err);

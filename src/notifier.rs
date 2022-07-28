@@ -41,11 +41,7 @@ impl Notification {
     }
 
     // Updates an existing notification with new metadata or album art.
-    pub fn update(
-        &mut self,
-        metadata: &PlayerMetadata,
-        album_art: Option<NotificationImage>,
-    ) {
+    pub fn update(&mut self, metadata: &PlayerMetadata, album_art: Option<NotificationImage>) {
         self.metadata = metadata.clone();
         self.album_art = album_art;
         self.last_touched = Instant::now();

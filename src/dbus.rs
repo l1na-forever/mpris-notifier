@@ -7,42 +7,24 @@ const POLLING_TIMEOUT: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Error)]
 pub enum DBusError {
-    #[error("error connecting to D-Bus")]
-    Connection(rustbus::connection::Error),
+    #[error("D-Bus connection error")]
+    Connection(#[from] rustbus::connection::Error),
 
     #[error("Unexpected D-Bus message format")]
     Invalid(String),
 
-    #[error("D-Bus generic error")]
+    #[error("D-Bus error message received")]
     Generic(String),
 
     #[error("error unmarshalling D-Bus message")]
-    Unmarshal(rustbus::wire::unmarshal::Error),
+    Unmarshal(#[from] rustbus::wire::errors::UnmarshalError),
 
-    #[error("rustbus message error")]
-    Message(rustbus::Error),
+    #[error("error marshalling D-Bus message")]
+    Marshal(#[from] rustbus::wire::errors::MarshalError),
 }
 
 pub struct DBusConnection {
     connection: DuplexConn,
-}
-
-impl From<rustbus::connection::Error> for DBusError {
-    fn from(err: rustbus::connection::Error) -> Self {
-        DBusError::Connection(err)
-    }
-}
-
-impl From<rustbus::wire::unmarshal::Error> for DBusError {
-    fn from(err: rustbus::wire::unmarshal::Error) -> Self {
-        DBusError::Unmarshal(err)
-    }
-}
-
-impl From<rustbus::Error> for DBusError {
-    fn from(err: rustbus::Error) -> Self {
-        DBusError::Message(err)
-    }
 }
 
 impl DBusConnection {

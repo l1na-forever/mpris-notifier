@@ -47,7 +47,10 @@ impl App {
                         log::error!("error handling signal: {:?}", err);
                     }
                 }
-                Err(err) => log::error!("error polling D-Bus: {:?}", err),
+                Err(DBusError::Connection(rustbus::connection::Error::TimedOut)) => {}
+                Err(err) => {
+                    log::error!("error polling D-Bus: {:?}", err)
+                }
                 _ => {}
             }
 

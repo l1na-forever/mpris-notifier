@@ -17,7 +17,7 @@ album-art = ["ureq", "url", "image"]
 thiserror = "1"
 
 # Pure Rust library for accessing D-Bus.
-rustbus = "0.17"
+rustbus = "0.18"
 
 # Logging facade and simple output logger
 log = "0.4"
