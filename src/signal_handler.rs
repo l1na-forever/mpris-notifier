@@ -4,7 +4,7 @@ use crate::art::ArtFetcher;
 use crate::mpris::MprisPropertiesChange;
 use crate::mpris::PlayerMetadata;
 use crate::mpris::PlayerStatus;
-use crate::notifier::NotificationImage;
+use crate::notifier::Notification;
 use crate::DBusError;
 use crate::{configuration::Configuration, dbus::DBusConnection, notifier::Notifier};
 use rustbus::message_builder::MarshalledMessage;
@@ -13,7 +13,11 @@ use std::time::Duration;
 use std::time::Instant;
 use thiserror::Error;
 
-const NOTIFICATION_SPILLOVER: Duration = Duration::from_millis(250);
+// After receiving a track changed signal, the notification is held for this
+// period of time before being sent, to allow for more changes to be sent.
+// Some clients send multiple `PropertiesChanged` signals adding additional
+// metadata fields.
+const NOTIFICATION_DELAY: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Error)]
 pub enum SignalHandlerError {
@@ -26,9 +30,11 @@ pub struct SignalHandler {
     notifier: Notifier,
     art_fetcher: ArtFetcher,
 
-    status: HashMap<String, PlayerStatus>,
+    // Map from <D-Bus Sender> -> <Last Received Metadata>
     metadata: HashMap<String, PlayerMetadata>,
-    last_notification: Instant,
+
+    // Notification that will be sent after [NOTIFICATION_DELAY] passes.
+    pending_notification: Option<Notification>,
 }
 
 impl SignalHandler {
@@ -37,17 +43,29 @@ impl SignalHandler {
             configuration: configuration.clone(),
             notifier: Notifier::new(configuration),
             art_fetcher: ArtFetcher::new(configuration),
-            status: HashMap::new(),
             metadata: HashMap::new(),
-            last_notification: Instant::now(),
+            pending_notification: None,
         }
     }
 
-    pub fn handle_signal(
-        &mut self,
-        signal: MarshalledMessage,
-        dbus: &mut DBusConnection,
-    ) -> Result<(), SignalHandlerError> {
+    // Must be called regularly from the main loop. Used to fire notifications
+    // on a timer.
+    pub fn handle_pending(&mut self, dbus: &mut DBusConnection) -> Result<(), SignalHandlerError> {
+        if let Some(pending) = &self.pending_notification {
+            let delta = Instant::now() - pending.last_touched();
+            if delta > NOTIFICATION_DELAY {
+                self.notifier
+                    .send_notification(self.pending_notification.take().unwrap(), dbus)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    // Called from the main loop for every received signal. Sets the pending
+    // notification, but does not emit the notification; use [handle_pending]
+    // to send the notification.
+    pub fn handle_signal(&mut self, signal: MarshalledMessage) -> Result<(), SignalHandlerError> {
         let sender = signal
             .dynheader
             .sender
@@ -55,79 +73,77 @@ impl SignalHandler {
             .ok_or_else(|| DBusError::Invalid("Missing sender header".to_string()))?
             .clone();
         let change = MprisPropertiesChange::try_from(signal).ok();
+
         // Signals we don't care about are ignored
         if change.is_none() {
             return Ok(());
         }
         let change = change.unwrap();
 
-        let mut status: Option<&PlayerStatus> = self.status.get(&sender);
+        // Handle metadata property changes.
+        //
+        // Incoming metadata property changes are cached per each sender,
+        // where the most recently received metadata is cached in its
+        // entirety.
+        //
+        // A property change always queues up a notification to be sent.
         let mut metadata: Option<&PlayerMetadata> = self.metadata.get(&sender);
-        let mut previous_status: Option<PlayerStatus> = None;
-        let mut previous_metadata: Option<PlayerMetadata> = None;
-
-        if change.status.is_some() {
-            previous_status = self
-                .status
-                .insert(sender.to_string(), change.status.unwrap());
-            status = self.status.get(&sender);
-        }
-        if change.metadata.is_some() {
-            previous_metadata = self
-                .metadata
-                .insert(sender.to_string(), change.metadata.unwrap());
+        if let Some(new_metadata) = change.metadata {
+            self.metadata
+                .insert(sender.to_string(), new_metadata.clone());
             metadata = self.metadata.get(&sender);
+
+            // If our current notification is from the same sender, update it.
+            // Otherwise, wipe out whatever was being built and start
+            // hydrating a new Notification.
+            let pending = self.pending_notification.as_mut();
+            if let Some(pending) = pending {
+                if pending.sender() == sender {
+                    pending.update(&new_metadata, None);
+                }
+            } else {
+                self.pending_notification = Some(Notification::new(&sender, &new_metadata, None));
+            }
         }
 
-        // If we haven't gotten metadata/status yet, we can't notify
-        if metadata.is_none() || status.is_none() {
+        // If we haven't gotten metadata yet, we can't notify
+        if metadata.is_none() {
             return Ok(());
         }
         let metadata = metadata.unwrap();
-        let status = status.unwrap();
 
-        if *status != PlayerStatus::Playing {
-            return Ok(());
+        // Handle playback status.
+        //
+        // When the 'Playing' signal is sent, queue that sender's track
+        // for notification (either they're resuming play, or changing
+        // tracks). If any other status signal is sent, ignore it; the
+        // other events aren't used consistently enough to use as hints.
+        if let Some(status) = change.status {
+            if status == PlayerStatus::Playing {
+                self.pending_notification = Some(Notification::new(&sender, metadata, None));
+            } else {
+                return Ok(());
+            }
         }
+        let pending = self.pending_notification.as_mut().unwrap();
 
-        // Don't notify if a notification for this track has already fired, unless we're resuming after pause.
-        if (previous_status.is_some() && previous_status.unwrap() != PlayerStatus::Paused)
-            && previous_metadata.is_some()
-            && previous_metadata.unwrap() == *metadata
-        {
-            return Ok(());
-        }
-
-        // Fetch album art to a temporary buffer, if the feature is enabled.
-        let mut album_art: Option<NotificationImage> = None;
-
+        // Fetch album art to a temporary buffer in the pending notification,
+        // if the feature is enabled.
         #[cfg(feature = "album-art")]
         if metadata.art_url.is_some() && self.configuration.enable_album_art {
             let result = self
                 .art_fetcher
                 .get_album_art(metadata.art_url.as_ref().unwrap());
             match result {
-                Ok(data) => album_art = Some(data),
+                Ok(data) => {
+                    pending.update(&metadata, Some(data));
+                }
                 Err(err) => {
                     log::warn!("Error fetching album art for {:#?}: {}", &metadata, err);
                 }
             }
         }
 
-        // Some notification producers can oscillate between playing/not
-        // playing rapidly, generating a lot of play/pause events for the same
-        // track. This attempts to account for spammy producers.
-        let now = Instant::now();
-        let delta = now - self.last_notification;
-        if delta < NOTIFICATION_SPILLOVER {
-            log::warn!(
-                "Multiple signals received in under {:?}, dropping",
-                NOTIFICATION_SPILLOVER
-            );
-            return Ok(());
-        }
-        self.last_notification = now;
-
-        Ok(self.notifier.send_notification(metadata, album_art, dbus)?)
+        Ok(())
     }
 }

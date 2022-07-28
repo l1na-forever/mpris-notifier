@@ -1,6 +1,9 @@
 use rustbus::message_builder::MarshalledMessage;
 use rustbus::DuplexConn;
+use std::time::Duration;
 use thiserror::Error;
+
+const POLLING_TIMEOUT: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Error)]
 pub enum DBusError {
@@ -50,15 +53,19 @@ impl DBusConnection {
 
     /// Blocks, awaiting the next signal from D-Bus, which is processed and
     /// returned. No-op messages (messages from which no useful result is
-    /// derived) are silently acknowledged, and `next_message` will continue to
-    /// block until a message that yields a result is received.
-    pub fn next_signal(&mut self) -> Result<MarshalledMessage, DBusError> {
+    /// derived) are silently acknowledged, and `next_message` will continue
+    /// to block until a message that yields a result is received, or the
+    /// polling timeout is reached.
+    pub fn next_signal(&mut self) -> Result<Option<MarshalledMessage>, DBusError> {
         use rustbus::{connection::Timeout, MessageType};
 
         loop {
-            let message = self.connection.recv.get_next_message(Timeout::Infinite)?;
+            let message = self
+                .connection
+                .recv
+                .get_next_message(Timeout::Duration(POLLING_TIMEOUT))?;
             match message.typ {
-                MessageType::Signal => return Ok(message),
+                MessageType::Signal => return Ok(Some(message)),
                 MessageType::Error => {
                     let body = self.message_body_string(&message)?;
                     return Err(DBusError::Generic(body.to_string()));

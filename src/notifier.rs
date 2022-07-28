@@ -8,6 +8,7 @@ use crate::Configuration;
 use rustbus::MessageBuilder;
 use rustbus::{dbus_variant_sig, Marshal, Signature, Unmarshal};
 use std::collections::HashMap;
+use std::time::Instant;
 
 const NOTIFICATION_NAMESPACE: &str = "org.freedesktop.Notifications";
 const NOTIFICATION_OBJECTPATH: &str = "/org/freedesktop/Notifications";
@@ -17,11 +18,53 @@ pub struct Notifier {
     configuration: Configuration,
 }
 
+#[derive(Debug)]
+pub struct Notification {
+    sender: String,
+    metadata: PlayerMetadata,
+    album_art: Option<NotificationImage>,
+    last_touched: Instant,
+}
+
+impl Notification {
+    pub fn new(
+        sender: &str,
+        metadata: &PlayerMetadata,
+        album_art: Option<NotificationImage>,
+    ) -> Self {
+        Self {
+            sender: sender.to_string(),
+            metadata: metadata.clone(),
+            album_art,
+            last_touched: Instant::now(),
+        }
+    }
+
+    // Updates an existing notification with new metadata or album art.
+    pub fn update(
+        &mut self,
+        metadata: &PlayerMetadata,
+        album_art: Option<NotificationImage>,
+    ) {
+        self.metadata = metadata.clone();
+        self.album_art = album_art;
+        self.last_touched = Instant::now();
+    }
+
+    pub fn sender(&self) -> &str {
+        &self.sender
+    }
+
+    pub fn last_touched(&self) -> Instant {
+        self.last_touched
+    }
+}
+
 type NotificationHintMap = HashMap<String, NotificationHintVariant>;
 dbus_variant_sig!(NotificationHintVariant, CaseString => String; CaseNotificationImage => NotificationImage);
 
 // See: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html#icons-and-images
-#[derive(Marshal, Unmarshal, Signature, Debug, Eq, PartialEq)]
+#[derive(Marshal, Unmarshal, Signature, Debug, Eq, PartialEq, Clone)]
 pub struct NotificationImage {
     width: i32,
     height: i32,
@@ -59,10 +102,12 @@ impl Notifier {
 
     pub fn send_notification(
         &self,
-        metadata: &PlayerMetadata,
-        album_art: Option<NotificationImage>,
+        notification: Notification,
         dbus: &mut DBusConnection,
     ) -> Result<(), DBusError> {
+        let metadata = &notification.metadata;
+        let album_art = notification.album_art;
+
         // See: https://github.com/hoodie/notify-rust/blob/main/src/xdg/dbus_rs.rs#L64-L73
         let mut message = MessageBuilder::new()
             .call("Notify")

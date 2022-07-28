@@ -15,7 +15,7 @@ use crate::signal_handler::SignalHandler;
 use std::{thread, time::Duration};
 use thiserror::Error;
 
-const EVENT_DELAY: Duration = Duration::from_millis(250);
+const LOOP_DELAY: Duration = Duration::from_millis(50);
 
 /// Top-level application errors, meant to be presented to the user.
 #[derive(Debug, Error)]
@@ -38,15 +38,20 @@ impl App {
         subscribe_mpris(&mut dbus)?;
 
         loop {
+            if let Err(err) = self.signal_handler.handle_pending(&mut dbus) {
+                log::error!("error sending notification: {:?}", err);
+            }
             match dbus.next_signal() {
-                Ok(signal) => {
-                    if let Err(err) = self.signal_handler.handle_signal(signal, &mut dbus) {
-                        log::error!("{:?}", err);
+                Ok(Some(signal)) => {
+                    if let Err(err) = self.signal_handler.handle_signal(signal) {
+                        log::error!("error handling signal: {:?}", err);
                     }
                 }
-                Err(err) => log::error!("{:?}", err),
+                Err(err) => log::error!("error polling D-Bus: {:?}", err),
+                _ => {}
             }
-            thread::sleep(EVENT_DELAY);
+
+            thread::sleep(LOOP_DELAY)
         }
     }
 
