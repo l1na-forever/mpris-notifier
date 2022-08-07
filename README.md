@@ -52,6 +52,13 @@ Configuration keys are as follows:
 * `enable_album_art`: Enable album artwork fetch. When enabled, album artwork will appear alongside the album art, provided that the art fetch completes within the deadline.
 * `album_art_deadline`: The deadline, in milliseconds, before which the album art fetch must complete, else the notification will be sent without artwork.
 
+The following specifiers are available for `subject_format` and `body_format`:
+
+* `{album}`
+* `{artist}`
+* `{title}`
+* `{track}`
+
 ## Troubleshooting
 
 **mpris-notifier fails to start**
