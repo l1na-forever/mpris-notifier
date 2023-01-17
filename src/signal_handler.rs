@@ -122,8 +122,12 @@ impl SignalHandler {
                 self.pending_notification = Some(Notification::new(&sender, metadata, None));
             } else {
                 self.pending_notification = None;
-                return Ok(());
             }
+        }
+
+        //  We can't notify if the pending notification is still empty 
+        if self.pending_notification.as_mut().is_none() {
+            return Ok(());
         }
         let pending = self.pending_notification.as_mut().unwrap();
 
