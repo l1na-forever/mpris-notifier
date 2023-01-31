@@ -80,7 +80,7 @@ pub fn load_configuration() -> Result<Configuration, ConfigurationError> {
 // with default values, and the default values are used to start the program.
 fn load_configuration_from_path(full_path: &str) -> Result<Configuration, ConfigurationError> {
     // If we have an existing config file, try to load it and use that
-    if let Ok(existing_toml) = fs::read_to_string(&full_path) {
+    if let Ok(existing_toml) = fs::read_to_string(full_path) {
         let config: Configuration = toml::from_str(&existing_toml)?;
         return Ok(config);
     }
@@ -98,7 +98,7 @@ fn load_configuration_from_path(full_path: &str) -> Result<Configuration, Config
     }
 
     let default_toml = toml::to_string_pretty(&default_config).unwrap();
-    if let Err(err) = fs::write(&full_path, default_toml) {
+    if let Err(err) = fs::write(full_path, default_toml) {
         log::warn!(
             "Unable to write default configuration file `{}`, using defaults: {}",
             &full_path,

@@ -55,8 +55,7 @@ impl TryFrom<MarshalledMessage> for MprisPropertiesChange {
         let interface_name: &str = parser.get()?;
         if interface_name != MPRIS_INTERFACE {
             return Err(DBusError::Invalid(format!(
-                "wrong interface type '{}'",
-                interface_name
+                "wrong interface type '{interface_name}'"
             )));
         }
 

@@ -94,8 +94,7 @@ impl DBusConnection {
     ) -> Result<(), DBusError> {
         use rustbus::standard_messages::add_match;
         let match_str = format!(
-            "interface='{}',member='{}',path='{}'",
-            interface, member, path
+            "interface='{interface}',member='{member}',path='{path}'"
         );
         self.connection
             .send
