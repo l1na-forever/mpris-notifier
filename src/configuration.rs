@@ -51,6 +51,13 @@ pub struct Configuration {
     ///
     /// Default: [DEFAULT_ALBUM_ART_DEADLINE]
     pub album_art_deadline: u32,
+
+    /// A list of commands to be called on each notification. Each command
+    /// should be given as a sequence, the first item being the program and
+    /// following items being arguments.
+    ///
+    /// Default: [DEFAULT_COMMANDS]
+    pub commands: Vec<Vec<String>>,
 }
 
 const DEFAULT_SUBJECT_FORMAT: &str = "{track}";
@@ -58,6 +65,7 @@ const DEFAULT_BODY_FORMAT: &str = "{album} - {artist}";
 const DEFAULT_JOIN_STRING: &str = ", ";
 const DEFAULT_ENABLE_ALBUM_ART: bool = true;
 const DEFAULT_ALBUM_ART_DEADLINE: u32 = 1000;
+const DEFAULT_COMMANDS: Vec<Vec<String>> = vec![];
 
 impl Default for Configuration {
     fn default() -> Self {
@@ -67,6 +75,7 @@ impl Default for Configuration {
             join_string: DEFAULT_JOIN_STRING.to_string(),
             enable_album_art: DEFAULT_ENABLE_ALBUM_ART,
             album_art_deadline: DEFAULT_ALBUM_ART_DEADLINE,
+            commands: DEFAULT_COMMANDS,
         }
     }
 }
@@ -128,13 +137,22 @@ mod tests {
                           body_format = "{album}\n{artist}"
                           join_string = ' ⬥ '
                           enable_album_art = true
-                          album_art_deadline = 1500"#;
+                          album_art_deadline = 1500
+                          commands = [['pkill', '-RTMIN+2', 'waybar'], ['~/script.sh']]"#;
         let expected = Configuration {
             subject_format: "{track}".to_string(),
             body_format: "{album}\n{artist}".to_string(),
             join_string: " ⬥ ".to_string(),
             enable_album_art: true,
             album_art_deadline: 1500,
+            commands: vec![
+                vec![
+                    "pkill".to_string(),
+                    "-RTMIN+2".to_string(),
+                    "waybar".to_string(),
+                ],
+                vec!["~/script.sh".to_string()],
+            ],
         };
         fs::create_dir_all(&*TEST_TEMP_DIR).expect("test setup failed");
         fs::write(&conf_path, conf_data).expect("test setup failed");
