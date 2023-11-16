@@ -9,6 +9,7 @@ use crate::DBusError;
 use crate::{configuration::Configuration, dbus::DBusConnection, notifier::Notifier};
 use rustbus::message_builder::MarshalledMessage;
 use std::collections::HashMap;
+use std::process::Command;
 use std::time::Duration;
 use std::time::Instant;
 use thiserror::Error;
@@ -74,6 +75,34 @@ impl SignalHandler {
             .clone();
         let change = MprisPropertiesChange::try_from(signal).ok();
 
+        // Call commands for all signals, so that external programs are called
+        // on pause and play.
+        for command_args in self.configuration.commands.iter() {
+            if command_args.len() < 1 {
+                // Ignore empty commands.
+                continue;
+            }
+
+            let mut command = match command_args.len() {
+                0 => continue,
+                1 => Command::new(command_args[0].as_str()),
+                2.. => {
+                    let mut cmd = Command::new(command_args[0].as_str());
+                    cmd.args(&command_args[1..command_args.len()]);
+                    cmd
+                }
+                _ => unreachable!(),
+            };
+
+            match command.output() {
+                Ok(_) => (),
+                Err(err) => {
+                    let command_str = command_args.iter().fold("".to_string(), |acc, i| acc + i);
+                    log::warn!("Command '{}' failed: {}", command_str, err);
+                }
+            }
+        }
+
         // Signals we don't care about are ignored
         if change.is_none() {
             return Ok(());
@@ -125,7 +154,7 @@ impl SignalHandler {
             }
         }
 
-        //  We can't notify if the pending notification is still empty 
+        //  We can't notify if the pending notification is still empty
         if self.pending_notification.as_mut().is_none() {
             return Ok(());
         }
