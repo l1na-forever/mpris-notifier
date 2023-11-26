@@ -78,7 +78,7 @@ impl SignalHandler {
         // Call commands for all signals, so that external programs are called
         // on pause and play.
         for command_args in self.configuration.commands.iter() {
-            if command_args.len() < 1 {
+            if command_args.is_empty() {
                 // Ignore empty commands.
                 continue;
             }
@@ -91,7 +91,6 @@ impl SignalHandler {
                     cmd.args(&command_args[1..command_args.len()]);
                     cmd
                 }
-                _ => unreachable!(),
             };
 
             match command.output() {

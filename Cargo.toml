@@ -21,7 +21,7 @@ rustbus = "0.19.1"
 
 # Logging facade and simple output logger
 log = "0.4"
-simple_logger = "2"
+simple_logger = "4.2"
 
 # Minimal, blocking/sync HTTP client used to download album art
 ureq = { version = "2.5", optional = true }
