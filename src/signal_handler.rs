@@ -37,7 +37,7 @@ pub struct SignalHandler {
     // Notification that will be sent after [NOTIFICATION_DELAY] passes.
     pending_notification: Option<Notification>,
 
-    // Commands that will be called after [NOTIFICATION_DELAY] passes.
+    // Commands that will be called on MPRIS DBUS signals.
     pending_commands: Vec<Command>,
 }
 
