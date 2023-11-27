@@ -36,6 +36,9 @@ pub struct SignalHandler {
 
     // Notification that will be sent after [NOTIFICATION_DELAY] passes.
     pending_notification: Option<Notification>,
+
+    // Commands that will be called on MPRIS DBUS signals.
+    pending_commands: Vec<Command>,
 }
 
 impl SignalHandler {
@@ -46,6 +49,7 @@ impl SignalHandler {
             art_fetcher: ArtFetcher::new(configuration),
             metadata: HashMap::new(),
             pending_notification: None,
+            pending_commands: Vec::new(),
         }
     }
 
@@ -57,6 +61,17 @@ impl SignalHandler {
             if delta > NOTIFICATION_DELAY {
                 self.notifier
                     .send_notification(self.pending_notification.take().unwrap(), dbus)?;
+
+                for command in self.pending_commands.iter_mut() {
+                    match command.output() {
+                        Ok(_) => (),
+                        Err(err) => {
+                            log::warn!("Command failed: {}", err);
+                        }
+                    }
+                }
+
+                self.pending_commands.clear();
             }
         }
 
@@ -74,7 +89,7 @@ impl SignalHandler {
             .ok_or_else(|| DBusError::Invalid("Missing sender header".to_string()))?
             .clone();
         let change = MprisPropertiesChange::try_from(signal).ok();
-
+      
         // Signals we don't care about are ignored
         if change.is_none() {
             return Ok(());
@@ -82,30 +97,21 @@ impl SignalHandler {
 
         // Call commands for all signals, so that external programs are called
         // on pause and play.
-        for command_args in self.configuration.commands.iter() {
-            if command_args.is_empty() {
-                // Ignore empty commands.
-                continue;
-            }
-
-            let mut command = match command_args.len() {
-                0 => continue,
-                1 => Command::new(command_args[0].as_str()),
+        self.pending_commands = self
+            .configuration
+            .commands
+            .iter()
+            .filter_map(|command_args| match command_args.len() {
+                0 => None,
+                1 => Some(Command::new(command_args[0].as_str())),
                 2.. => {
                     let mut cmd = Command::new(command_args[0].as_str());
                     cmd.args(&command_args[1..command_args.len()]);
-                    cmd
+                    Some(cmd)
                 }
-            };
+            })
+            .collect();
 
-            match command.output() {
-                Ok(_) => (),
-                Err(err) => {
-                    let command_str = command_args.iter().fold("".to_string(), |acc, i| acc + i);
-                    log::warn!("Command '{}' failed: {}", command_str, err);
-                }
-            }
-        }
 
         let change = change.unwrap();
 
