@@ -75,6 +75,33 @@ impl SignalHandler {
             .clone();
         let change = MprisPropertiesChange::try_from(signal).ok();
 
+        // Call commands for all signals, so that external programs are called
+        // on pause and play.
+        for command_args in self.configuration.commands.iter() {
+            if command_args.is_empty() {
+                // Ignore empty commands.
+                continue;
+            }
+
+            let mut command = match command_args.len() {
+                0 => continue,
+                1 => Command::new(command_args[0].as_str()),
+                2.. => {
+                    let mut cmd = Command::new(command_args[0].as_str());
+                    cmd.args(&command_args[1..command_args.len()]);
+                    cmd
+                }
+            };
+
+            match command.output() {
+                Ok(_) => (),
+                Err(err) => {
+                    let command_str = command_args.iter().fold("".to_string(), |acc, i| acc + i);
+                    log::warn!("Command '{}' failed: {}", command_str, err);
+                }
+            }
+        }
+
         // Signals we don't care about are ignored
         if change.is_none() {
             return Ok(());
