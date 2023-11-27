@@ -37,7 +37,7 @@ pub struct SignalHandler {
     // Notification that will be sent after [NOTIFICATION_DELAY] passes.
     pending_notification: Option<Notification>,
 
-    // Commands that will be called on MPRIS DBUS signals.
+    // Commands that will be called after [NOTIFICATION_DELAY] pasees.
     pending_commands: Vec<Command>,
 }
 
@@ -61,19 +61,20 @@ impl SignalHandler {
             if delta > NOTIFICATION_DELAY {
                 self.notifier
                     .send_notification(self.pending_notification.take().unwrap(), dbus)?;
-            }
-        }
 
-        for command in self.pending_commands.iter_mut() {
-            match command.output() {
-                Ok(_) => (),
-                Err(err) => {
-                    log::warn!("Command failed: {}", err);
+                for command in self.pending_commands.iter_mut() {
+                    match command.output() {
+                        Ok(_) => (),
+                        Err(err) => {
+                            log::warn!("Command failed: {}", err);
+                        }
+                    }
                 }
+
+                self.pending_commands.clear();
             }
         }
 
-        self.pending_commands.clear();
         Ok(())
     }
 
