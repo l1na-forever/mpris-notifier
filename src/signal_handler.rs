@@ -75,6 +75,11 @@ impl SignalHandler {
             .clone();
         let change = MprisPropertiesChange::try_from(signal).ok();
 
+        // Signals we don't care about are ignored
+        if change.is_none() {
+            return Ok(());
+        }
+
         // Call commands for all signals, so that external programs are called
         // on pause and play.
         for command_args in self.configuration.commands.iter() {
@@ -102,10 +107,6 @@ impl SignalHandler {
             }
         }
 
-        // Signals we don't care about are ignored
-        if change.is_none() {
-            return Ok(());
-        }
         let change = change.unwrap();
 
         // Handle metadata property changes.
