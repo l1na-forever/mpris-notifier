@@ -36,6 +36,9 @@ pub struct SignalHandler {
 
     // Notification that will be sent after [NOTIFICATION_DELAY] passes.
     pending_notification: Option<Notification>,
+
+    // Commands that will be called after [NOTIFICATION_DELAY] passes.
+    pending_commands: Vec<Command>,
 }
 
 impl SignalHandler {
@@ -46,6 +49,7 @@ impl SignalHandler {
             art_fetcher: ArtFetcher::new(configuration),
             metadata: HashMap::new(),
             pending_notification: None,
+            pending_commands: Vec::new(),
         }
     }
 
@@ -60,6 +64,16 @@ impl SignalHandler {
             }
         }
 
+        for command in self.pending_commands.iter_mut() {
+            match command.output() {
+                Ok(_) => (),
+                Err(err) => {
+                    log::warn!("Command failed: {}", err);
+                }
+            }
+        }
+
+        self.pending_commands.clear();
         Ok(())
     }
 
@@ -77,64 +91,25 @@ impl SignalHandler {
 
         // Call commands for all signals, so that external programs are called
         // on pause and play.
-        for command_args in self.configuration.commands.iter() {
-            if command_args.is_empty() {
-                // Ignore empty commands.
-                continue;
-            }
-
-            let mut command = match command_args.len() {
-                0 => continue,
-                1 => Command::new(command_args[0].as_str()),
+        self.pending_commands = self
+            .configuration
+            .commands
+            .iter()
+            .filter_map(|command_args| match command_args.len() {
+                0 => None,
+                1 => Some(Command::new(command_args[0].as_str())),
                 2.. => {
                     let mut cmd = Command::new(command_args[0].as_str());
                     cmd.args(&command_args[1..command_args.len()]);
-                    cmd
+                    Some(cmd)
                 }
-            };
-
-            match command.output() {
-                Ok(_) => (),
-                Err(err) => {
-                    let command_str = command_args.iter().fold("".to_string(), |acc, i| acc + i);
-                    log::warn!("Command '{}' failed: {}", command_str, err);
-                }
-            }
-        }
+            })
+            .collect();
 
         // Signals we don't care about are ignored
         if change.is_none() {
             return Ok(());
         }
-
-        // Call commands for all signals, so that external programs are called
-        // on pause and play.
-        for command_args in self.configuration.commands.iter() {
-            if command_args.len() < 1 {
-                // Ignore empty commands.
-                continue;
-            }
-
-            let mut command = match command_args.len() {
-                0 => continue,
-                1 => Command::new(command_args[0].as_str()),
-                2.. => {
-                    let mut cmd = Command::new(command_args[0].as_str());
-                    cmd.args(&command_args[1..command_args.len()]);
-                    cmd
-                }
-                _ => unreachable!(),
-            };
-
-            match command.output() {
-                Ok(_) => (),
-                Err(err) => {
-                    let command_str = command_args.iter().fold("".to_string(), |acc, i| acc + i);
-                    log::warn!("Command '{}' failed: {}", command_str, err);
-                }
-            }
-        }
-
         let change = change.unwrap();
 
         // Handle metadata property changes.
