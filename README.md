@@ -51,6 +51,7 @@ Configuration keys are as follows:
 * `join_string`: For fields including multiple entities (such as "artists"), this determines which character is used to join the strings.
 * `enable_album_art`: Enable album artwork fetch. When enabled, album artwork will appear alongside the album art, provided that the art fetch completes within the deadline.
 * `album_art_deadline`: The deadline, in milliseconds, before which the album art fetch must complete, else the notification will be sent without artwork.
+* `commands`: An optional list of commands that will be run when a notification is generated. Commands must be given as a list of command sequences, where the first item is the program, and the following items are the arguments (for example, `[['~/script.sh', '--my-argument']]`).
 
 The following specifiers are available for `subject_format` and `body_format`:
 
