@@ -108,6 +108,7 @@ impl SignalHandler {
                         cmd.args(&command_args[1..command_args.len()]);
                         Some(cmd)
                     }
+                    _ => None,
                 })
                 .collect();
         }
