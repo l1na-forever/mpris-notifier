@@ -89,7 +89,7 @@ impl SignalHandler {
             .ok_or_else(|| DBusError::Invalid("Missing sender header".to_string()))?
             .clone();
         let change = MprisPropertiesChange::try_from(signal).ok();
-      
+
         // Signals we don't care about are ignored
         if change.is_none() {
             return Ok(());
@@ -97,21 +97,20 @@ impl SignalHandler {
 
         // Call commands for all signals, so that external programs are called
         // on pause and play.
-        self.pending_commands = self
-            .configuration
-            .commands
-            .iter()
-            .filter_map(|command_args| match command_args.len() {
-                0 => None,
-                1 => Some(Command::new(command_args[0].as_str())),
-                2.. => {
-                    let mut cmd = Command::new(command_args[0].as_str());
-                    cmd.args(&command_args[1..command_args.len()]);
-                    Some(cmd)
-                }
-            })
-            .collect();
-
+        if let Some(commands) = self.configuration.commands.as_ref() {
+            self.pending_commands = commands
+                .iter()
+                .filter_map(|command_args| match command_args.len() {
+                    0 => None,
+                    1 => Some(Command::new(command_args[0].as_str())),
+                    2.. => {
+                        let mut cmd = Command::new(command_args[0].as_str());
+                        cmd.args(&command_args[1..command_args.len()]);
+                        Some(cmd)
+                    }
+                })
+                .collect();
+        }
 
         let change = change.unwrap();
 

@@ -57,7 +57,7 @@ pub struct Configuration {
     /// following items being arguments.
     ///
     /// Default: [DEFAULT_COMMANDS]
-    pub commands: Vec<Vec<String>>,
+    pub commands: Option<Vec<Vec<String>>>,
 }
 
 const DEFAULT_SUBJECT_FORMAT: &str = "{track}";
@@ -65,7 +65,7 @@ const DEFAULT_BODY_FORMAT: &str = "{album} - {artist}";
 const DEFAULT_JOIN_STRING: &str = ", ";
 const DEFAULT_ENABLE_ALBUM_ART: bool = true;
 const DEFAULT_ALBUM_ART_DEADLINE: u32 = 1000;
-const DEFAULT_COMMANDS: Vec<Vec<String>> = vec![];
+const DEFAULT_COMMANDS: Option<Vec<Vec<String>>> = None;
 
 impl Default for Configuration {
     fn default() -> Self {
@@ -145,14 +145,14 @@ mod tests {
             join_string: " ⬥ ".to_string(),
             enable_album_art: true,
             album_art_deadline: 1500,
-            commands: vec![
+            commands: Some(vec![
                 vec![
                     "pkill".to_string(),
                     "-RTMIN+2".to_string(),
                     "waybar".to_string(),
                 ],
                 vec!["~/script.sh".to_string()],
-            ],
+            ]),
         };
         fs::create_dir_all(&*TEST_TEMP_DIR).expect("test setup failed");
         fs::write(&conf_path, conf_data).expect("test setup failed");
