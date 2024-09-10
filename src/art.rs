@@ -13,7 +13,7 @@ const THUMBNAIL_SIZE: u32 = 256; // generate <size> * <size> notification icons
 #[derive(Debug, Error)]
 pub enum ArtFetcherError {
     #[error("error fetching URL")]
-    Fetch(#[from] ureq::Error),
+    Fetch(#[from] Box<ureq::Error>),
 
     #[error("error writing tempfile")]
     Write(#[from] std::io::Error),
@@ -54,7 +54,10 @@ impl ArtFetcher {
     }
 
     fn fetch_url(&self, url: &str) -> Result<Vec<u8>, ArtFetcherError> {
-        let response = ureq::get(url).timeout(self.timeout).call()?;
+        let response = ureq::get(url)
+            .timeout(self.timeout)
+            .call()
+            .map_err(Box::new)?;
 
         let len: usize = response
             .header("content-length")
