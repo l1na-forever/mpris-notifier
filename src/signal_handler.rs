@@ -34,6 +34,9 @@ pub struct SignalHandler {
     // Map from <D-Bus Sender> -> <Last Received Metadata>
     metadata: HashMap<String, PlayerMetadata>,
 
+    // Map from <D-Bus Sender> -> <Last Received Status>
+    status: HashMap<String, PlayerStatus>,
+
     // Notification that will be sent after [NOTIFICATION_DELAY] passes.
     pending_notification: Option<Notification>,
 
@@ -50,6 +53,7 @@ impl SignalHandler {
             metadata: HashMap::new(),
             pending_notification: None,
             pending_commands: Vec::new(),
+            status: HashMap::new(),
         }
     }
 
@@ -108,7 +112,6 @@ impl SignalHandler {
                         cmd.args(&command_args[1..command_args.len()]);
                         Some(cmd)
                     }
-                    _ => None,
                 })
                 .collect();
         }
@@ -127,6 +130,11 @@ impl SignalHandler {
             self.metadata
                 .insert(sender.to_string(), new_metadata.clone());
             metadata = self.metadata.get(&sender);
+
+            // Wipe out player status whenever we have incoming track metadata.
+            // Player status is used to ensure that Playing -> Playing status
+            // changes don't generate spurious notifications.
+            self.status.remove(&sender);
 
             // If our current notification is from the same sender, update it.
             // Otherwise, wipe out whatever was being built and start
@@ -153,8 +161,15 @@ impl SignalHandler {
         // for notification (either they're resuming play, or changing
         // tracks).
         if let Some(status) = change.status {
+            let last_status = self.status.insert(sender.clone(), status.clone());
+
             if status == PlayerStatus::Playing {
-                self.pending_notification = Some(Notification::new(&sender, metadata, None));
+                // We only want to generate a notification for a "Playing" status
+                // change when we weren't already in "Playing".
+                if last_status.is_none() || last_status.is_some_and(|l| l != PlayerStatus::Playing)
+                {
+                    self.pending_notification = Some(Notification::new(&sender, metadata, None));
+                }
             } else {
                 self.pending_notification = None;
             }
