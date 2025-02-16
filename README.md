@@ -1,6 +1,7 @@
 mpris-notifier
 ================
-[![Workflow Status](https://github.com/l1na-forever/mpris-notifier/actions/workflows/autobuild.yml/badge.svg)](https://github.com/l1na-forever/mpris-notifier/actions)
+[![Workflow Status](https://github.com/l1na-forever/mpris-notifier/actions/workflows/autobuild.yml/badge.svg)](https://github.com/l1na-forever/mpris-notifier/actions) [![Crates.io Version](https://img.shields.io/crates/v/mpris-notifier)](https://crates.io/crates/mpris-notifier)
+
 
 Shows desktop notifications for media/music track changes.
 
