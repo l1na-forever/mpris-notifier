@@ -1,9 +1,8 @@
 mpris-notifier
 ================
+![Workflow Status](https://github.com/l1na-forever/mpris-notifier/actions/workflows/autobuild.yml/badge.svg)
 
-Simple version: Shows desktop notifications for media/music track changes.
-
-Technical version: Dependency-light, highly-customizable, XDG desktop notification generator for 🎵 🎹 MPRIS media status changes 💿.
+Shows desktop notifications for media/music track changes.
 
 <img alt="Screenshot of mpris-notifier being displayed with mako" src="https://raw.githubusercontent.com/l1na-forever/mpris-notifier/mainline/assets/screenshot1.png" width="50%" height="50%" />
 
