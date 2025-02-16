@@ -72,8 +72,8 @@ impl SignalHandler {
     }
 
     // Instantiates Command instances based on the configured commands.
-    fn generate_commands(configuration: &Configuration) -> Vec<Command> {
-        let config_commands = configuration.commands.clone();
+    fn generate_commands(&self) -> Vec<Command> {
+        let config_commands = self.configuration.commands.clone();
         if config_commands.is_none() {
             return Vec::new();
         }
@@ -95,7 +95,7 @@ impl SignalHandler {
 
     // Fires commands after a notification was sent.
     fn fire_commands(&self) {
-        let mut commands = Self::generate_commands(&self.configuration);
+        let mut commands = self.generate_commands();
         for command in commands.iter_mut() {
             match command.output() {
                 Ok(_) => (),
