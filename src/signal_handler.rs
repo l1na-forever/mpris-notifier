@@ -18,7 +18,7 @@ use thiserror::Error;
 // period of time before being sent, to allow for more changes to be sent.
 // Some clients send multiple `PropertiesChanged` signals adding additional
 // metadata fields.
-const NOTIFICATION_DELAY: Duration = Duration::from_millis(250);
+const NOTIFICATION_DEBOUNCE: Duration = Duration::from_millis(10);
 
 #[derive(Debug, Error)]
 pub enum SignalHandlerError {
@@ -39,9 +39,6 @@ pub struct SignalHandler {
 
     // Notification that will be sent after [NOTIFICATION_DELAY] passes.
     pending_notification: Option<Notification>,
-
-    // Commands that will be called on MPRIS DBUS signals.
-    pending_commands: Vec<Command>,
 }
 
 impl SignalHandler {
@@ -52,34 +49,61 @@ impl SignalHandler {
             art_fetcher: ArtFetcher::new(configuration),
             metadata: HashMap::new(),
             pending_notification: None,
-            pending_commands: Vec::new(),
             status: HashMap::new(),
         }
     }
 
     // Must be called regularly from the main loop. Used to fire notifications
     // on a timer.
+    //
+    // TODO - rename to fire_pending, move debounce logic out
     pub fn handle_pending(&mut self, dbus: &mut DBusConnection) -> Result<(), SignalHandlerError> {
         if let Some(pending) = &self.pending_notification {
             let delta = Instant::now() - pending.last_touched();
-            if delta > NOTIFICATION_DELAY {
+
+            if delta > NOTIFICATION_DEBOUNCE {
                 self.notifier
                     .send_notification(self.pending_notification.take().unwrap(), dbus)?;
-
-                for command in self.pending_commands.iter_mut() {
-                    match command.output() {
-                        Ok(_) => (),
-                        Err(err) => {
-                            log::warn!("Command failed: {}", err);
-                        }
-                    }
-                }
-
-                self.pending_commands.clear();
+                self.fire_commands();
             }
         }
 
         Ok(())
+    }
+
+    // Instantiates Command instances based on the configured commands.
+    fn generate_commands(configuration: &Configuration) -> Vec<Command> {
+        let config_commands = configuration.commands.clone();
+        if config_commands.is_none() {
+            return Vec::new();
+        }
+
+        config_commands
+            .unwrap()
+            .iter()
+            .filter_map(|command_args| match command_args.len() {
+                0 => None,
+                1 => Some(Command::new(command_args[0].as_str())),
+                2.. => {
+                    let mut cmd = Command::new(command_args[0].as_str());
+                    cmd.args(&command_args[1..command_args.len()]);
+                    Some(cmd)
+                }
+            })
+            .collect()
+    }
+
+    // Fires commands after a notification was sent.
+    fn fire_commands(&self) {
+        let mut commands = Self::generate_commands(&self.configuration);
+        for command in commands.iter_mut() {
+            match command.output() {
+                Ok(_) => (),
+                Err(err) => {
+                    log::warn!("Command failed: {}", err);
+                }
+            }
+        }
     }
 
     // Called from the main loop for every received signal. Sets the pending
@@ -98,24 +122,6 @@ impl SignalHandler {
         if change.is_none() {
             return Ok(());
         }
-
-        // Call commands for all signals, so that external programs are called
-        // on pause and play.
-        if let Some(commands) = self.configuration.commands.as_ref() {
-            self.pending_commands = commands
-                .iter()
-                .filter_map(|command_args| match command_args.len() {
-                    0 => None,
-                    1 => Some(Command::new(command_args[0].as_str())),
-                    2.. => {
-                        let mut cmd = Command::new(command_args[0].as_str());
-                        cmd.args(&command_args[1..command_args.len()]);
-                        Some(cmd)
-                    }
-                })
-                .collect();
-        }
-
         let change = change.unwrap();
 
         // Handle metadata property changes.
@@ -139,11 +145,10 @@ impl SignalHandler {
             // If our current notification is from the same sender, update it.
             // Otherwise, wipe out whatever was being built and start
             // hydrating a new Notification.
-            let pending = self.pending_notification.as_mut();
-            if let Some(pending) = pending {
-                if pending.sender() == sender {
-                    pending.update(&new_metadata, None);
-                }
+            if let Some(pending) = self.pending_notification.as_mut()
+                && pending.sender() == sender
+            {
+                pending.update(&new_metadata, None);
             } else {
                 self.pending_notification = Some(Notification::new(&sender, &new_metadata, None));
             }

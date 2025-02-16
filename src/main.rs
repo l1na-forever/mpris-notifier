@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 #[cfg(feature = "album-art")]
 mod art;
 
@@ -38,11 +40,12 @@ impl App {
         subscribe_mpris(&mut dbus)?;
 
         loop {
-            if let Err(err) = self.signal_handler.handle_pending(&mut dbus) {
-                log::error!("error sending notification: {:?}", err);
-            }
+            // TODO - Drain DBUS signals until we get nothing back (timeout).
+            //
+            // TODO - polling DBUS with a long interval and sending results over
+            // a channel to combine them would be more efficient than short polling.
             match dbus.next_signal() {
-                Ok(Some(signal)) => {
+                Ok(signal) => {
                     if let Err(err) = self.signal_handler.handle_signal(signal) {
                         log::error!("error handling signal: {:?}", err);
                     }
@@ -51,9 +54,14 @@ impl App {
                 Err(err) => {
                     log::error!("error polling D-Bus: {:?}", err)
                 }
-                _ => {}
             }
 
+            // Handle the pending notification.
+            if let Err(err) = self.signal_handler.handle_pending(&mut dbus) {
+                log::error!("error sending notification: {:?}", err);
+            }
+
+            // Delay before we attempt polling again.
             thread::sleep(LOOP_DELAY)
         }
     }

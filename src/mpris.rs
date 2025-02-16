@@ -75,17 +75,23 @@ impl TryFrom<MarshalledMessage> for MprisPropertiesChange {
 
 fn metadata_from_map(inner: &HashMap<String, Variant>) -> PlayerMetadata {
     PlayerMetadata {
-        track_id: inner.get("mpris:trackid").and_then(|x| x.get().ok()),
-        album: inner.get("xesam:album").and_then(|x| x.get().ok()),
-        album_artists: inner.get("xesam:albumArtist").and_then(|x| x.get().ok()),
-        art_url: inner.get("mpris:artUrl").and_then(|x| x.get().ok()),
-        artists: inner.get("xesam:artist").and_then(|x| x.get().ok()),
-        title: inner.get("xesam:title").and_then(|x| x.get().ok()),
-        track_number: inner.get("xesam:trackNumber").and_then(|x| x.get().ok()),
-        track_url: inner.get("xesam:url").and_then(|x| x.get().ok()),
+        track_id: inner_metadata("mpris:trackid", inner),
+        album: inner_metadata("xesam:album", inner),
+        album_artists: inner_metadata("xesam:albumArtist", inner),
+        art_url: inner_metadata("mpris:artUrl", inner),
+        artists: inner_metadata("xesam:artist", inner),
+        title: inner_metadata("xesam:title", inner),
+        track_number: inner_metadata("xesam:trackNumber", inner),
+        track_url: inner_metadata("xesam:url", inner),
     }
 }
 
+fn inner_metadata<'a, S: AsRef<str>, T: rustbus::Unmarshal<'a, 'a>>(
+    key: S,
+    inner: &'a HashMap<String, Variant>,
+) -> Option<T> {
+    inner.get(key.as_ref()).and_then(|x| x.get().ok())
+}
 // Convenience method to subscribe a DBusConnection to MPRIS player property
 // change events (e.g., track changes).
 pub fn subscribe_mpris(dbus: &mut DBusConnection) -> Result<(), DBusError> {
