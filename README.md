@@ -1,6 +1,6 @@
 mpris-notifier
 ================
-![Workflow Status](https://github.com/l1na-forever/mpris-notifier/actions/workflows/autobuild.yml/badge.svg)
+[![Workflow Status](https://github.com/l1na-forever/mpris-notifier/actions/workflows/autobuild.yml/badge.svg)](https://github.com/l1na-forever/mpris-notifier/actions)
 
 Shows desktop notifications for media/music track changes.
 
