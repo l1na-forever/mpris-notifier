@@ -145,10 +145,10 @@ impl SignalHandler {
             // If our current notification is from the same sender, update it.
             // Otherwise, wipe out whatever was being built and start
             // hydrating a new Notification.
-            if let Some(pending) = self.pending_notification.as_mut()
-                && pending.sender() == sender
-            {
-                pending.update(&new_metadata, None);
+            if let Some(pending) = self.pending_notification.as_mut() {
+                if pending.sender() == sender {
+                    pending.update(&new_metadata, None);
+                }
             } else {
                 self.pending_notification = Some(Notification::new(&sender, &new_metadata, None));
             }

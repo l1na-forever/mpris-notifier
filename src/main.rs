@@ -1,5 +1,3 @@
-#![feature(let_chains)]
-
 #[cfg(feature = "album-art")]
 mod art;
 
