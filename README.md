@@ -26,13 +26,11 @@ To install via [Cargo](https://doc.rust-lang.org/cargo/):
 
     cargo install mpris-notifier
 
-To install from source, first, [install Rust](https:://rustup.rs/), and then run:
+To install from source, first, [install Rust](https://rustup.rs/), and then run:
 
     git clone github.com/l1na-forever/mpris-notifier
     cd mpris-notifier
     cargo install --path .
-
-**Binary releases can be found on the [Releases page](https://github.com/l1na-forever/mpris-notifier/releases/).** To install a binary release, simply copy the executable to wherever's convenient (such as `/usr/local/bin`, or `~/.local/bin`), and run it!
 
 ## Usage
 
