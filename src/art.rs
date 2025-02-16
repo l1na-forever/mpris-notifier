@@ -1,6 +1,6 @@
 use crate::configuration::Configuration;
 use crate::notifier::NotificationImage;
-use image::io::Reader as ImageReader;
+use image::ImageReader;
 use std::fs;
 use std::io::{Cursor, Read};
 use std::time::Duration;

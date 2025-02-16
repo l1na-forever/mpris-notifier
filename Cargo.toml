@@ -17,21 +17,21 @@ album-art = ["ureq", "url", "image"]
 thiserror = "1"
 
 # Pure Rust library for accessing D-Bus.
-rustbus = "0.19.1"
+rustbus = "0.19.3"
 
 # Logging facade and simple output logger
 log = "0.4"
-simple_logger = "4.2"
+simple_logger = "4"
 
 # Minimal, blocking/sync HTTP client used to download album art
-ureq = { version = "2.5", optional = true }
+ureq = { version = "2", optional = true }
 
 # URL parsing library, used to determine how to handle album art URLs
 url = { version = "2.2", optional = true }
 
 # Image processing library, used to convert album art into the XDG
 # notification image-data format
-image = { version = "0.24", optional = true }
+image = { version = "0.25", optional = true }
 
 # Config file loading
 serde = { version = "1.0", features = ["derive"] }
