@@ -3,7 +3,7 @@ use rustbus::DuplexConn;
 use std::time::Duration;
 use thiserror::Error;
 
-const POLLING_TIMEOUT: Duration = Duration::from_millis(50);
+const POLLING_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Error)]
 pub enum DBusError {
@@ -33,12 +33,12 @@ impl DBusConnection {
         Ok(Self { connection })
     }
 
-    /// Blocks, awaiting the next signal from D-Bus, which is processed and
+    /// Blocks, awaiting the next message from D-Bus, which is processed and
     /// returned. No-op messages (messages from which no useful result is
     /// derived) are silently acknowledged, and `next_message` will continue
     /// to block until a message that yields a result is received, or the
     /// polling timeout is reached.
-    pub fn next_signal(&mut self) -> Result<MarshalledMessage, DBusError> {
+    pub fn next_message(&mut self) -> Result<MarshalledMessage, DBusError> {
         use rustbus::{connection::Timeout, MessageType};
 
         loop {

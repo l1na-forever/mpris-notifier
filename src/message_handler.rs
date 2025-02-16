@@ -10,23 +10,15 @@ use crate::{configuration::Configuration, dbus::DBusConnection, notifier::Notifi
 use rustbus::message_builder::MarshalledMessage;
 use std::collections::HashMap;
 use std::process::Command;
-use std::time::Duration;
-use std::time::Instant;
 use thiserror::Error;
 
-// After receiving a track changed signal, the notification is held for this
-// period of time before being sent, to allow for more changes to be sent.
-// Some clients send multiple `PropertiesChanged` signals adding additional
-// metadata fields.
-const NOTIFICATION_DEBOUNCE: Duration = Duration::from_millis(10);
-
 #[derive(Debug, Error)]
-pub enum SignalHandlerError {
-    #[error("error handling D-Bus signal")]
+pub enum MessageHandlerError {
+    #[error("error handling D-Bus message")]
     DBus(#[from] DBusError),
 }
 
-pub struct SignalHandler {
+pub struct MessageHandler {
     configuration: Configuration,
     notifier: Notifier,
     art_fetcher: ArtFetcher,
@@ -37,11 +29,11 @@ pub struct SignalHandler {
     // Map from <D-Bus Sender> -> <Last Received Status>
     status: HashMap<String, PlayerStatus>,
 
-    // Notification that will be sent after [NOTIFICATION_DELAY] passes.
+    // Notification that will be sent after [DEBOUNCE_PERIOD] passes.
     pending_notification: Option<Notification>,
 }
 
-impl SignalHandler {
+impl MessageHandler {
     pub fn new(configuration: &Configuration) -> Self {
         Self {
             configuration: configuration.clone(),
@@ -55,17 +47,10 @@ impl SignalHandler {
 
     // Must be called regularly from the main loop. Used to fire notifications
     // on a timer.
-    //
-    // TODO - rename to fire_pending, move debounce logic out
-    pub fn handle_pending(&mut self, dbus: &mut DBusConnection) -> Result<(), SignalHandlerError> {
-        if let Some(pending) = &self.pending_notification {
-            let delta = Instant::now() - pending.last_touched();
-
-            if delta > NOTIFICATION_DEBOUNCE {
-                self.notifier
-                    .send_notification(self.pending_notification.take().unwrap(), dbus)?;
-                self.fire_commands();
-            }
+    pub fn fire_pending(&mut self, dbus: &mut DBusConnection) -> Result<(), MessageHandlerError> {
+        if let Some(pending) = self.pending_notification.take() {
+            self.notifier.send_notification(pending, dbus)?;
+            self.fire_commands();
         }
 
         Ok(())
@@ -106,17 +91,20 @@ impl SignalHandler {
         }
     }
 
-    // Called from the main loop for every received signal. Sets the pending
+    // Called from the main loop for every received message. Sets the pending
     // notification, but does not emit the notification; use [handle_pending]
     // to send the notification.
-    pub fn handle_signal(&mut self, signal: MarshalledMessage) -> Result<(), SignalHandlerError> {
-        let sender = signal
+    pub fn process_message(
+        &mut self,
+        message: MarshalledMessage,
+    ) -> Result<(), MessageHandlerError> {
+        let sender = message
             .dynheader
             .sender
             .as_ref()
             .ok_or_else(|| DBusError::Invalid("Missing sender header".to_string()))?
             .clone();
-        let change = MprisPropertiesChange::try_from(signal).ok();
+        let change = MprisPropertiesChange::try_from(message).ok();
 
         // Signals we don't care about are ignored
         if change.is_none() {

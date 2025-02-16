@@ -8,7 +8,6 @@ use crate::Configuration;
 use rustbus::MessageBuilder;
 use rustbus::{dbus_variant_sig, Marshal, Signature, Unmarshal};
 use std::collections::HashMap;
-use std::time::Instant;
 
 const NOTIFICATION_NAMESPACE: &str = "org.freedesktop.Notifications";
 const NOTIFICATION_OBJECTPATH: &str = "/org/freedesktop/Notifications";
@@ -23,7 +22,6 @@ pub struct Notification {
     sender: String,
     metadata: PlayerMetadata,
     album_art: Option<NotificationImage>,
-    last_touched: Instant,
 }
 
 impl Notification {
@@ -36,7 +34,6 @@ impl Notification {
             sender: sender.to_string(),
             metadata: metadata.clone(),
             album_art,
-            last_touched: Instant::now(),
         }
     }
 
@@ -44,15 +41,10 @@ impl Notification {
     pub fn update(&mut self, metadata: &PlayerMetadata, album_art: Option<NotificationImage>) {
         self.metadata = metadata.clone();
         self.album_art = album_art;
-        self.last_touched = Instant::now();
     }
 
     pub fn sender(&self) -> &str {
         &self.sender
-    }
-
-    pub fn last_touched(&self) -> Instant {
-        self.last_touched
     }
 }
 

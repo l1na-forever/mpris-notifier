@@ -1,7 +1,7 @@
 [package]
 name = "mpris-notifier"
 authors = ["Lina <61861965+l1na-forever@users.noreply.github.com>"]
-version = "0.1.10"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/l1na-forever/mpris-notifier"
@@ -42,6 +42,12 @@ home = "0.5"
 regex = "1"
 lazy_static = "1"
 
+# Used to dispatch messages between threads.
+crossbeam-channel = "0.5"
+
 [dev-dependencies]
 # For testing configuration loading
 tempfile = "3"
+
+[profile.release]
+lto = "thin"
