@@ -1,11 +1,11 @@
 #[cfg(feature = "album-art")]
 use crate::art::ArtFetcher;
 
+use crate::dbus::DBusError;
 use crate::mpris::MprisPropertiesChange;
 use crate::mpris::PlayerMetadata;
 use crate::mpris::PlayerStatus;
 use crate::notifier::Notification;
-use crate::DBusError;
 use crate::{configuration::Configuration, dbus::DBusConnection, notifier::Notifier};
 use rustbus::message_builder::MarshalledMessage;
 use std::collections::HashMap;
@@ -121,24 +121,33 @@ impl MessageHandler {
         // A property change always queues up a notification to be sent.
         let mut metadata: Option<&PlayerMetadata> = self.metadata.get(&sender);
         if let Some(new_metadata) = change.metadata {
-            self.metadata
-                .insert(sender.to_string(), new_metadata.clone());
-            metadata = self.metadata.get(&sender);
+            let old_metadata = self.metadata.get(&sender);
 
-            // Wipe out player status whenever we have incoming track metadata.
-            // Player status is used to ensure that Playing -> Playing status
-            // changes don't generate spurious notifications.
-            self.status.remove(&sender);
+            // Check if metadata has actually changed
+            let metadata_changed =
+                old_metadata.is_none() || old_metadata.is_some_and(|old| old != &new_metadata);
 
-            // If our current notification is from the same sender, update it.
-            // Otherwise, wipe out whatever was being built and start
-            // hydrating a new Notification.
-            if let Some(pending) = self.pending_notification.as_mut() {
-                if pending.sender() == sender {
-                    pending.update(&new_metadata, None);
+            if metadata_changed {
+                self.metadata
+                    .insert(sender.to_string(), new_metadata.clone());
+                metadata = self.metadata.get(&sender);
+
+                // Wipe out player status whenever the track metadata changes.
+                // Player status is used to ensure that Playing -> Playing status
+                // changes don't generate spurious notifications.
+                self.status.remove(&sender);
+
+                // If our current notification is from the same sender, update it.
+                // Otherwise, wipe out whatever was being built and start
+                // hydrating a new Notification.
+                if let Some(pending) = self.pending_notification.as_mut() {
+                    if pending.sender() == sender {
+                        pending.update(&new_metadata, None);
+                    }
+                } else {
+                    self.pending_notification =
+                        Some(Notification::new(&sender, &new_metadata, None));
                 }
-            } else {
-                self.pending_notification = Some(Notification::new(&sender, &new_metadata, None));
             }
         }
 
