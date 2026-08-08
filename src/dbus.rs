@@ -99,4 +99,76 @@ impl DBusConnection {
             .send_message_write_all(&add_match(&match_str))?;
         Ok(())
     }
+
+    pub fn get_initial_mpris_players(
+        &mut self,
+    ) -> Result<std::collections::HashMap<String, String>, DBusError> {
+        use rustbus::message_builder::MessageBuilder;
+        let list_msg = MessageBuilder::new()
+            .call("ListNames")
+            .with_interface("org.freedesktop.DBus")
+            .on("/org/freedesktop/DBus")
+            .at("org.freedesktop.DBus")
+            .build();
+
+        let list_serial = self
+            .connection
+            .send
+            .send_message_write_all(&list_msg)
+            .map_err(DBusError::Connection)?;
+
+        let names: Vec<String> = loop {
+            let reply = self
+                .connection
+                .recv
+                .get_next_message(rustbus::connection::Timeout::Infinite)
+                .map_err(DBusError::Connection)?;
+            if reply.typ == rustbus::MessageType::Reply
+                && reply.dynheader.response_serial == Some(list_serial)
+            {
+                let mut parser = reply.body.parser();
+                let arr: Vec<&str> = parser.get()?;
+                break arr
+                    .into_iter()
+                    .filter(|n| n.starts_with("org.mpris.MediaPlayer2."))
+                    .map(String::from)
+                    .collect();
+            }
+        };
+
+        let mut map = std::collections::HashMap::new();
+        for name in names {
+            let mut get_msg = MessageBuilder::new()
+                .call("GetNameOwner")
+                .with_interface("org.freedesktop.DBus")
+                .on("/org/freedesktop/DBus")
+                .at("org.freedesktop.DBus")
+                .build();
+            get_msg.body.push_param(&name).map_err(DBusError::Marshal)?;
+            let get_serial = self
+                .connection
+                .send
+                .send_message_write_all(&get_msg)
+                .map_err(DBusError::Connection)?;
+
+            loop {
+                let reply = self
+                    .connection
+                    .recv
+                    .get_next_message(rustbus::connection::Timeout::Infinite)
+                    .map_err(DBusError::Connection)?;
+                if reply.typ == rustbus::MessageType::Reply
+                    && reply.dynheader.response_serial == Some(get_serial)
+                {
+                    let mut parser = reply.body.parser();
+                    if let Ok(unique_name) = parser.get::<&str>() {
+                        map.insert(unique_name.to_string(), name.clone());
+                    }
+                    break;
+                }
+            }
+        }
+
+        Ok(map)
+    }
 }

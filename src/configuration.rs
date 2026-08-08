@@ -70,6 +70,15 @@ pub struct Configuration {
     ///
     /// Default: [DEFAULT_CATEGORY]
     pub category: Option<String>,
+
+    /// An optional list of player names to allowlist. When set, only players
+    /// whose D-Bus sender name contains an entry in this list will generate
+    /// notifications. Player names are matched as substrings of the D-Bus
+    /// well-known name (e.g., `"spotifyd"` matches
+    /// `"org.mpris.MediaPlayer2.spotifyd"`).
+    ///
+    /// Default: [DEFAULT_PLAYER_ALLOWLIST] (all players allowed)
+    pub player_allowlist: Option<Vec<String>>,
 }
 
 const DEFAULT_SUBJECT_FORMAT: &str = "{track}";
@@ -80,6 +89,7 @@ const DEFAULT_ALBUM_ART_DEADLINE: u32 = 1000;
 const DEFAULT_COMMANDS: Option<Vec<Vec<String>>> = None;
 const DEFAULT_URGENCY: Option<u8> = Some(1); // Normal urgency
 const DEFAULT_CATEGORY: Option<String> = None;
+const DEFAULT_PLAYER_ALLOWLIST: Option<Vec<String>> = None;
 
 impl Default for Configuration {
     fn default() -> Self {
@@ -92,6 +102,7 @@ impl Default for Configuration {
             commands: DEFAULT_COMMANDS,
             urgency: DEFAULT_URGENCY,
             category: DEFAULT_CATEGORY,
+            player_allowlist: DEFAULT_PLAYER_ALLOWLIST,
         }
     }
 }
