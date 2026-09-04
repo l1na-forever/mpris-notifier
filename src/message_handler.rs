@@ -31,6 +31,10 @@ pub struct MessageHandler {
 
     // Notification that will be sent after [DEBOUNCE_PERIOD] passes.
     pending_notification: Option<Notification>,
+
+    // Map from unique D-Bus name (":1.N") -> well-known MPRIS name
+    // ("org.mpris.MediaPlayer2.<player>"). Used for allowlist matching.
+    name_map: HashMap<String, String>,
 }
 
 impl MessageHandler {
@@ -42,6 +46,13 @@ impl MessageHandler {
             metadata: HashMap::new(),
             pending_notification: None,
             status: HashMap::new(),
+            name_map: HashMap::new(),
+        }
+    }
+
+    pub fn load_initial_players(&mut self, map: HashMap<String, String>) {
+        for (unique, well_known) in map {
+            self.name_map.insert(unique, well_known);
         }
     }
 
@@ -91,19 +102,32 @@ impl MessageHandler {
         }
     }
 
-    // Called from the main loop for every received message. Sets the pending
-    // notification, but does not emit the notification; use [handle_pending]
-    // to send the notification.
+    // Called from the main loop for every received message. Handles
+    // NameOwnerChanged signals to maintain the unique→well-known name map,
+    // and sets the pending notification for MPRIS property changes.
+    // Does not emit the notification; use [fire_pending] to send it.
     pub fn process_message(
         &mut self,
         message: MarshalledMessage,
     ) -> Result<(), MessageHandlerError> {
+        // Track NameOwnerChanged to build unique-name -> well-known-name map.
+        if message
+            .dynheader
+            .member
+            .as_deref()
+            .is_some_and(|m| m == "NameOwnerChanged")
+        {
+            self.handle_name_owner_changed(&message);
+            return Ok(());
+        }
+
         let sender = message
             .dynheader
             .sender
             .as_ref()
             .ok_or_else(|| DBusError::Invalid("Missing sender header".to_string()))?
             .clone();
+
         let change = MprisPropertiesChange::try_from(message).ok();
 
         // Signals we don't care about are ignored
@@ -111,6 +135,23 @@ impl MessageHandler {
             return Ok(());
         }
         let change = change.unwrap();
+
+        // Apply allowlist if configured: check if this sender's well-known
+        // name contains any of the allowlisted player name substrings.
+        if let Some(allowlist) = &self.configuration.player_allowlist {
+            let well_known = self.name_map.get(&sender).map(String::as_str).unwrap_or("unknown");
+            let allowed = allowlist
+                .iter()
+                .any(|entry| well_known.contains(entry.as_str()));
+            if !allowed {
+                log::debug!(
+                    "Ignoring signal from '{}' (well-known: '{}'), not in allowlist",
+                    sender,
+                    well_known
+                );
+                return Ok(());
+            }
+        }
 
         // Handle metadata property changes.
         //
@@ -201,5 +242,42 @@ impl MessageHandler {
         }
 
         Ok(())
+    }
+
+    // Handles a NameOwnerChanged signal from org.freedesktop.DBus to maintain
+    // the unique-name -> well-known-name map used for allowlist matching.
+    // The signal body is (name: &str, old_owner: &str, new_owner: &str):
+    //   - new_owner non-empty: a service acquired the name
+    //   - new_owner empty: a service released the name
+    fn handle_name_owner_changed(&mut self, message: &MarshalledMessage) {
+        let mut parser = message.body.parser();
+        let name = match parser.get::<&str>() {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        let _old_owner = match parser.get::<&str>() {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        let new_owner = match parser.get::<&str>() {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+
+        // NameOwnerChanged fires for every D-Bus service, not just MPRIS players.
+        // Skip non-MPRIS names to avoid accumulating irrelevant entries in name_map.
+        if !name.starts_with("org.mpris.MediaPlayer2.") {
+            return;
+        }
+
+        if new_owner.is_empty() {
+            // Player unregistered: remove from map by value.
+            self.name_map.retain(|_, v| v != name);
+            log::debug!("MPRIS player unregistered: {}", name);
+        } else {
+            // Player registered: map unique name -> well-known name.
+            self.name_map.insert(new_owner.to_string(), name.to_string());
+            log::debug!("MPRIS player registered: {} -> {}", new_owner, name);
+        }
     }
 }

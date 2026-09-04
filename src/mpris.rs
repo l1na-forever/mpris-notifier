@@ -99,5 +99,13 @@ pub fn subscribe_mpris(dbus: &mut DBusConnection) -> Result<(), DBusError> {
         MPRIS_SIGNAL_INTERFACE,
         MPRIS_SIGNAL_MEMBER,
         MPRIS_SIGNAL_OBJECT,
-    )
+    )?;
+    subscribe_name_owner_changed(dbus)
+}
+
+// Subscribe to NameOwnerChanged signals from org.freedesktop.DBus so that
+// the message handler can maintain a unique-name -> well-known-name map,
+// enabling allowlist matching by friendly player name.
+fn subscribe_name_owner_changed(dbus: &mut DBusConnection) -> Result<(), DBusError> {
+    dbus.subscribe("org.freedesktop.DBus", "NameOwnerChanged", "/org/freedesktop/DBus")
 }

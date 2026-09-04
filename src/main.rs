@@ -78,6 +78,13 @@ fn message_thread(
 ) -> Result<(), AppError> {
     let mut dbus = DBusConnection::new()?;
 
+    // Fetch already-running MPRIS players and their well-known names.
+    if let Ok(initial_players) = dbus.get_initial_mpris_players() {
+        message_handler.load_initial_players(initial_players);
+    } else {
+        log::warn!("Failed to fetch initial MPRIS players from D-Bus");
+    }
+
     loop {
         // Wait indefinitely for a DBus message.
         let mut message = dbus_rx.recv()?;
@@ -112,7 +119,11 @@ fn message_thread(
 }
 
 fn main() -> Result<(), AppError> {
-    simple_logger::init_with_level(log::Level::Info).unwrap();
+    simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
+        .env()
+        .init()
+        .unwrap();
     let configuration = load_configuration()?;
     let message_handler = MessageHandler::new(&configuration);
     let (dbus_tx, dbus_rx) = crossbeam_channel::unbounded();

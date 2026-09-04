@@ -112,9 +112,16 @@ impl Notifier {
             return Ok(());
         }
 
+        // dunst's stack_tag icon merge used by x-canonical-private-synchronous below only
+        // refreshes the notification icon when this field changes between the old and new
+        // notification. Keep it unique per notification to avoid the previous notification's icon
+        // getting stuck when a new track is played while a notification is active, e.g. when
+        // skipping tracks back-to-back.
+        let icon = metadata.track_id.as_deref().unwrap_or("");
+
         message.body.push_param(NOTIFICATION_SOURCE)?; // appname (TODO)
         message.body.push_param(0_u32)?; // update ID
-        message.body.push_param("")?; // icon
+        message.body.push_param(icon)?; // icon
         message.body.push_param(subject)?; // summary
         message.body.push_param(body)?; // body
         message.body.push_param(Vec::<String>::new())?; // actions (array of strings)

@@ -50,6 +50,7 @@ Configuration keys are as follows:
 * `enable_album_art`: Enable album artwork fetch. When enabled, album artwork will appear alongside the album art, provided that the art fetch completes within the deadline.
 * `album_art_deadline`: The deadline, in milliseconds, before which the album art fetch must complete, else the notification will be sent without artwork.
 * `commands`: An optional list of commands that will be run when a notification is generated. Commands must be given as a list of command sequences, where the first item is the program, and the following items are the arguments (for example, `[['~/script.sh', '--my-argument']]`).
+* `player_allowlist`: An optional list of player name substrings. When set, only players whose MPRIS well-known name (e.g., `org.mpris.MediaPlayer2.spotifyd`) contains one of the listed strings will generate notifications. For example, `player_allowlist = ['spotifyd', 'mpd']` will only show notifications from Spotifyd and MPD. When omitted, all players are allowed.
 
 The following specifiers are available for `subject_format` and `body_format`:
 
